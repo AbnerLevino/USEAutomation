@@ -8,7 +8,9 @@ public static class ReportSerializer
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true
+        WriteIndented = true,
+        // Mantém acentos legíveis (ç, ã) em vez de ç; o JSON não é embutido em HTML.
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
     public static string Serialize(DiagnosticReport report) =>
