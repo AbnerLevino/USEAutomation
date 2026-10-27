@@ -43,7 +43,7 @@ public class PrinterRecognitionDiagnosticTests
         Assert.Equal(ExecutionStatus.Completed, report.ExecutionStatus);
         Assert.Equal(OverallStatus.NoProblemDetected, report.OverallStatus);
         Assert.Empty(report.Findings);
-        Assert.Single(report.Evidence);
+        Assert.Equal(2, report.Evidence.Count); // 1 fila + 1 dispositivo
         // "Nada detectado" nunca é prova de ausência: precisa registrar a limitação.
         Assert.Contains(report.Limitations, l => l.Contains("não prova"));
     }
@@ -76,7 +76,7 @@ public class PrinterRecognitionDiagnosticTests
             Printers = QueueList("Boa")
         });
 
-        Assert.Equal(2, report.Evidence.Count);
+        Assert.Equal(2, report.Evidence.Count(e => e.Source.Contains("Plug and Play")));
         var finding = Assert.Single(report.Findings);
         Assert.Contains("Ruim", finding.Title);
     }
@@ -156,12 +156,87 @@ public class PrinterRecognitionDiagnosticTests
     {
         var report = await RunAsync(new FakePrintDeviceProvider
         {
-            Devices = DeviceList(new PrintDeviceInfo("Impressora X", "A", 0)),
+            Devices = DeviceList(new PrintDeviceInfo("Impressora X", "USB\\VID_1", 0)),
             Printers = SourceResult<InstalledPrinterInfo>.Fail(SourceStatus.Failed, "erro")
         });
 
         Assert.Equal(OverallStatus.NoProblemDetected, report.OverallStatus);
         Assert.Contains(report.Limitations, l => l.Contains("filas de impressão não puderam"));
+    }
+
+    // ---- Virtuais x físicas ----
+
+    private static readonly PrintDeviceInfo SystemPdfDevice = new("Microsoft Print to PDF", "SWD\\PRINTENUM\\{1}", 0);
+    private static readonly InstalledPrinterInfo PdfQueue = new("Microsoft Print to PDF", "PORTPROMPT:");
+
+    [Fact]
+    public async Task Only_virtual_items_are_listed_but_do_not_prove_a_physical_printer()
+    {
+        // É exatamente o cenário real desta máquina de desenvolvimento.
+        var report = await RunAsync(new FakePrintDeviceProvider
+        {
+            Devices = DeviceList(SystemPdfDevice),
+            Printers = SourceResult<InstalledPrinterInfo>.Ok([PdfQueue])
+        });
+
+        Assert.Equal(OverallStatus.Inconclusive, report.OverallStatus);
+        Assert.Contains("Nenhuma impressora física", report.Summary);
+        Assert.Contains(report.Evidence, e => e.Description.Contains("Microsoft Print to PDF") && e.Description.Contains("virtual"));
+        Assert.Contains(report.Limitations, l => l.Contains("virtuais"));
+    }
+
+    [Fact]
+    public async Task Usb_device_with_only_virtual_queues_is_probable_problem()
+    {
+        var report = await RunAsync(new FakePrintDeviceProvider
+        {
+            Devices = DeviceList(new PrintDeviceInfo("Impressora X", "USB\\VID_1", 0), SystemPdfDevice),
+            Printers = SourceResult<InstalledPrinterInfo>.Ok([PdfQueue])
+        });
+
+        Assert.Equal(OverallStatus.ProblemProbable, report.OverallStatus);
+        Assert.Equal(Confidence.Probable, Assert.Single(report.Findings).Confidence);
+    }
+
+    [Fact]
+    public async Task Usb_device_with_physical_queue_reports_no_problem_and_keeps_virtual_queue_listed()
+    {
+        var report = await RunAsync(new FakePrintDeviceProvider
+        {
+            Devices = DeviceList(new PrintDeviceInfo("Impressora X", "USB\\VID_1", 0)),
+            Printers = SourceResult<InstalledPrinterInfo>.Ok([PdfQueue, new InstalledPrinterInfo("Impressora X", "USB001")])
+        });
+
+        Assert.Equal(OverallStatus.NoProblemDetected, report.OverallStatus);
+        Assert.Contains("1 virtual(is), 1 física(s)", report.Summary);
+        Assert.Equal(2, report.Evidence.Count(e => e.Source.Contains("Win32_Printer")));
+    }
+
+    [Fact]
+    public async Task Network_queue_alone_is_inconclusive_because_connectivity_is_not_checked()
+    {
+        var report = await RunAsync(new FakePrintDeviceProvider
+        {
+            Devices = DeviceList(),
+            Printers = SourceResult<InstalledPrinterInfo>.Ok([new InstalledPrinterInfo("Escritório", "IP_192.168.0.5")])
+        });
+
+        Assert.Equal(OverallStatus.Inconclusive, report.OverallStatus);
+        Assert.Contains("porta física ou de rede", report.Summary);
+    }
+
+    [Theory]
+    [InlineData("PORTPROMPT:", true)]
+    [InlineData("portprompt:", true)]
+    [InlineData("FILE:", true)]
+    [InlineData("nul:", true)]
+    [InlineData("SHRFAX:", true)]
+    [InlineData("USB001", false)]
+    [InlineData("IP_192.168.0.5", false)]
+    [InlineData(null, false)] // porta desconhecida: não presumimos virtual
+    public void Queue_is_classified_as_virtual_by_port_not_by_name(string? port, bool expectedVirtual)
+    {
+        Assert.Equal(expectedVirtual, PrinterClassifier.IsVirtualQueue(new InstalledPrinterInfo("qualquer nome", port)));
     }
 
     [Fact]

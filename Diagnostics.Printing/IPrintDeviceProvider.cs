@@ -22,7 +22,9 @@ public interface IPrintDeviceProvider
 /// <param name="ErrorCode">Código do Gerenciador de Dispositivos; 0 = sem problema; null = o Windows não informou.</param>
 public sealed record PrintDeviceInfo(string Name, string DeviceId, int? ErrorCode);
 
-public sealed record InstalledPrinterInfo(string Name);
+/// <param name="Name">Nome da fila de impressão.</param>
+/// <param name="PortName">Porta da fila (ex.: PORTPROMPT:, USB001, IP_192.168.0.5); null = não informada.</param>
+public sealed record InstalledPrinterInfo(string Name, string? PortName = null);
 
 /// <summary>O que aconteceu ao consultar uma fonte e, se deu certo, os itens obtidos.</summary>
 public sealed record SourceResult<T>(SourceStatus Status, IReadOnlyList<T> Items, string? Detail = null)

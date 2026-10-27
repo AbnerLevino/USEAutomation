@@ -3,14 +3,15 @@ using AutomationPlatform.Contracts;
 namespace AutomationPlatform.Diagnostics.Printing;
 
 /// <summary>
-/// Investiga se o Windows reconhece dispositivos de impressão e se algum reporta erro.
+/// Investiga o que o Windows reconhece em impressão e se algum dispositivo reporta erro.
 /// Só lê dados. Regras (ver docs/DIAGNOSTIC-REPORT.md):
-/// <list type="bullet">
-/// <item>Dispositivo com código de erro != 0 → ProblemConfirmed (o próprio Windows reportou).</item>
-/// <item>Dispositivo reconhecido sem erro, mas nenhuma fila instalada → ProblemProbable (indício indireto).</item>
-/// <item>Dispositivo reconhecido sem erro e fila presente (ou fila não verificável) → NoProblemDetected.</item>
-/// <item>Nenhum dispositivo, ou fonte de dispositivos indisponível → Inconclusive.</item>
+/// <list type="number">
+/// <item>Algum dispositivo com código de erro != 0 → ProblemConfirmed (o próprio Windows reportou).</item>
+/// <item>Dispositivo USB sem erro, mas nenhuma fila física/de rede instalada → ProblemProbable (falta o driver?).</item>
+/// <item>Dispositivo USB sem erro (e fila física presente ou fila não verificável) → NoProblemDetected.</item>
+/// <item>Só itens virtuais / de sistema, nenhum dispositivo, ou fonte indisponível → Inconclusive.</item>
 /// </list>
+/// Filas e dispositivos virtuais são listados (rotulados), mas não contam como prova de impressora real.
 /// </summary>
 public sealed class PrinterRecognitionDiagnostic : IDiagnostic
 {
@@ -47,29 +48,40 @@ public sealed class PrinterRecognitionDiagnostic : IDiagnostic
             limitations.Add($"A fonte de dispositivos não pôde ser verificada: {Describe(devices.Status)}.");
             return Inconclusive(
                 "Não foi possível consultar os dispositivos de impressão; nenhuma conclusão foi tirada.",
-                sources, limitations,
+                sources, [], limitations,
                 "Tente executar novamente. Se o problema persistir, verifique se o serviço WMI está ativo e se o usuário tem permissão de leitura.");
         }
 
         if (!printers.IsConsulted)
             limitations.Add($"As filas de impressão não puderam ser verificadas: {Describe(printers.Status)}.");
 
-        if (devices.Items.Count == 0)
-        {
-            Say(progress, "O Windows não listou nenhum dispositivo de impressão. Isso por si só não prova defeito.");
-            limitations.Add("Impressoras de rede, compartilhadas e virtuais podem funcionar sem aparecer como dispositivo local.");
-            var queues = printers.IsConsulted ? $" Há {printers.Items.Count} fila(s) de impressão instalada(s)." : "";
-            return Inconclusive(
-                "O Windows não reconheceu nenhum dispositivo de impressão local." + queues + " Isso não confirma falha de hardware.",
-                sources, limitations,
-                "Confirme se a impressora está ligada e conectada. Se for USB, teste outra porta ou cabo e execute o diagnóstico de novo.");
-        }
-
-        Say(progress, $"Encontrei {devices.Items.Count} dispositivo(s) de impressão. Vou analisar o estado de cada um.");
-
         var evidence = new List<Evidence>();
         var findings = new List<Finding>();
         var recommendations = new List<Recommendation>();
+
+        // --- Filas instaladas: listadas todas, rotuladas como virtuais ou físicas/de rede ---
+        var virtualQueues = printers.Items.Where(PrinterClassifier.IsVirtualQueue).ToList();
+        var physicalQueues = printers.Items.Where(p => !PrinterClassifier.IsVirtualQueue(p)).ToList();
+        if (printers.IsConsulted)
+        {
+            Say(progress, $"Há {printers.Items.Count} fila(s) instalada(s): {virtualQueues.Count} virtual(is) e {physicalQueues.Count} física(s) ou de rede.");
+            foreach (var queue in printers.Items)
+            {
+                var kind = PrinterClassifier.IsVirtualQueue(queue) ? "virtual" : "física ou de rede";
+                var port = queue.PortName is null ? "porta não informada" : $"porta {queue.PortName}";
+                evidence.Add(new Evidence
+                {
+                    Id = $"ev-{evidence.Count + 1}",
+                    Source = PrintersSourceName,
+                    Description = $"Fila '{queue.Name}' ({port}): {kind}."
+                });
+            }
+        }
+
+        // --- Dispositivos Plug and Play: todos listados, com o código de erro ---
+        var usbDevicesWithoutError = new List<PrintDeviceInfo>();
+        if (devices.Items.Count > 0)
+            Say(progress, $"O Windows reconhece {devices.Items.Count} dispositivo(s) de impressão. Vou analisar o estado de cada um.");
 
         foreach (var device in devices.Items)
         {
@@ -79,7 +91,7 @@ public sealed class PrinterRecognitionDiagnostic : IDiagnostic
             {
                 Id = evidenceId,
                 Source = PnpSourceName,
-                Description = $"Dispositivo '{device.Name}' ({device.DeviceId}): código de erro {code}."
+                Description = $"Dispositivo '{device.Name}' ({device.DeviceId}; {PrinterClassifier.DescribeDevice(device)}): código de erro {code}."
             });
 
             if (device.ErrorCode is not (null or 0))
@@ -102,6 +114,10 @@ public sealed class PrinterRecognitionDiagnostic : IDiagnostic
                     Text = $"Abra o Gerenciador de Dispositivos, localize '{device.Name}' e verifique o estado do driver (código {device.ErrorCode})."
                 });
             }
+            else if (device.ErrorCode == 0 && PrinterClassifier.IsUsbDevice(device))
+            {
+                usbDevicesWithoutError.Add(device);
+            }
         }
 
         if (findings.Count > 0)
@@ -115,23 +131,29 @@ public sealed class PrinterRecognitionDiagnostic : IDiagnostic
             };
         }
 
-        if (printers.IsConsulted && printers.Items.Count == 0)
+        var queueSummary = printers.IsConsulted
+            ? $" Filas instaladas: {printers.Items.Count} ({virtualQueues.Count} virtual(is), {physicalQueues.Count} física(s) ou de rede)."
+            : "";
+
+        // Equipamento USB reconhecido sem erro, mas nenhuma fila física: indício de driver/instalação faltando.
+        if (usbDevicesWithoutError.Count > 0 && printers.IsConsulted && physicalQueues.Count == 0)
         {
-            Say(progress, "O dispositivo está sem erro, mas não há nenhuma fila de impressão instalada. Isso é um indício, não uma prova.");
+            Say(progress, "Há um dispositivo USB de impressão sem erro, mas nenhuma fila física instalada para ele. Isso é um indício, não uma prova.");
+            var usbEvidence = evidence.First(e => e.Description.Contains(usbDevicesWithoutError[0].DeviceId));
             return new DiagnosticOutcome
             {
                 OverallStatus = OverallStatus.ProblemProbable,
-                Summary = "O Windows reconhece o dispositivo sem erro, mas não há fila de impressão instalada para ele.",
+                Summary = "O Windows reconhece um dispositivo USB de impressão sem erro, mas não há fila de impressão física instalada para ele." + queueSummary,
                 Findings =
                 [
                     new Finding
                     {
                         Id = "f-1",
-                        Title = "Dispositivo reconhecido sem fila de impressão",
-                        Description = "Há dispositivo de impressão sem erro, mas nenhuma impressora instalada. Pode faltar o driver de impressão.",
+                        Title = "Dispositivo USB reconhecido sem fila de impressão",
+                        Description = "Há dispositivo USB de impressão sem erro, mas nenhuma impressora física instalada. Pode faltar o driver de impressão.",
                         Severity = Severity.Medium,
                         Confidence = Confidence.Probable,
-                        EvidenceIds = [evidence[0].Id]
+                        EvidenceIds = [usbEvidence.Id]
                     }
                 ],
                 Evidence = evidence, Sources = sources, Limitations = limitations,
@@ -146,21 +168,39 @@ public sealed class PrinterRecognitionDiagnostic : IDiagnostic
             };
         }
 
-        Say(progress, "Nenhum dispositivo reporta erro nas verificações que fiz.");
-        limitations.Add("Ausência de erro nas fontes consultadas não prova que a impressão funciona.");
-        return new DiagnosticOutcome
+        // Equipamento USB reconhecido sem erro (fila física presente ou não verificável).
+        if (usbDevicesWithoutError.Count > 0)
         {
-            OverallStatus = OverallStatus.NoProblemDetected,
-            Summary = $"{devices.Items.Count} dispositivo(s) de impressão reconhecido(s), nenhum com erro reportado nas verificações realizadas.",
-            Evidence = evidence, Sources = sources, Limitations = limitations
-        };
+            Say(progress, "Nenhum dispositivo USB de impressão reporta erro nas verificações que fiz.");
+            limitations.Add("Ausência de erro nas fontes consultadas não prova que a impressão funciona.");
+            return new DiagnosticOutcome
+            {
+                OverallStatus = OverallStatus.NoProblemDetected,
+                Summary = $"{usbDevicesWithoutError.Count} dispositivo(s) USB de impressão reconhecido(s), nenhum com erro reportado nas verificações realizadas." + queueSummary,
+                Evidence = evidence, Sources = sources, Limitations = limitations
+            };
+        }
+
+        // Nenhuma impressora física comprovada: só itens virtuais/de sistema, filas de rede ou nada.
+        Say(progress, "Não encontrei nenhuma impressora física comprovada, então não dá para concluir sobre o equipamento.");
+        limitations.Add("Itens virtuais (PDF, XPS, fax) e filas de sistema não comprovam que existe uma impressora física.");
+        limitations.Add("Impressoras de rede e compartilhadas podem funcionar sem aparecer como dispositivo local; a conectividade de rede não é verificada.");
+        var networkNote = physicalQueues.Count > 0
+            ? " Há fila(s) com porta física ou de rede, mas o equipamento não pôde ser comprovado por este diagnóstico."
+            : "";
+        return Inconclusive(
+            "Nenhuma impressora física foi detectada pelo Windows." + queueSummary + networkNote + " Isso não confirma falha de hardware.",
+            sources, evidence, limitations,
+            "Confirme se a impressora está ligada e conectada. Se for USB, teste outra porta ou cabo e execute o diagnóstico de novo.");
     }
 
-    private static DiagnosticOutcome Inconclusive(string summary, List<DataSourceResult> sources, List<string> limitations, string recommendation) =>
+    private static DiagnosticOutcome Inconclusive(
+        string summary, List<DataSourceResult> sources, List<Evidence> evidence, List<string> limitations, string recommendation) =>
         new()
         {
             OverallStatus = OverallStatus.Inconclusive,
             Summary = summary,
+            Evidence = evidence,
             Sources = sources,
             Limitations = limitations,
             Recommendations = [new Recommendation { Text = recommendation }]

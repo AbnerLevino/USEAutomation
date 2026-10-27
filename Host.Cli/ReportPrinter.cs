@@ -17,6 +17,13 @@ internal static class ReportPrinter
         foreach (var f in report.Findings)
             output.WriteLine($"- [{f.Severity}/{f.Confidence}] {f.Title}: {f.Description}");
 
+        if (report.Evidence.Count > 0)
+        {
+            output.WriteLine("O que o Windows informou:");
+            foreach (var e in report.Evidence)
+                output.WriteLine($"  - {e.Description}");
+        }
+
         if (report.Sources.Count > 0)
         {
             output.WriteLine("Fontes consultadas:");

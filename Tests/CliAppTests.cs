@@ -28,7 +28,7 @@ public class CliAppTests
     {
         var provider = new FakePrintDeviceProvider
         {
-            Devices = SourceResult<PrintDeviceInfo>.Ok([new PrintDeviceInfo("X", "A", 0)]),
+            Devices = SourceResult<PrintDeviceInfo>.Ok([new PrintDeviceInfo("X", "USB\\VID_1", 0)]),
             Printers = SourceResult<InstalledPrinterInfo>.Ok([new InstalledPrinterInfo("X")])
         };
 

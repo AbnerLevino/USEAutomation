@@ -9,7 +9,8 @@ A primeira área é **diagnóstico de impressoras no Windows**. Objetivo futuro:
 - Diagnóstico `printing.device-recognition`: pergunta ao Windows (WMI, somente leitura) quais dispositivos de impressão ele reconhece e se algum reporta erro.
 - Relatório JSON versionado (`schemaVersion` 1.0).
 - CLI com narração em português e saída `--json` pura.
-- 28 testes automatizados (xUnit), sem depender de impressora física.
+- Separa filas/dispositivos virtuais (PDF, XPS, fax) dos físicos ou de rede; os virtuais continuam listados, mas não provam que há impressora real.
+- 40 testes automatizados (xUnit), sem depender de impressora física.
 - **Somente leitura.** Nenhuma correção automática. Nenhuma integração com o USE.
 
 ## Pré-requisitos
@@ -58,5 +59,5 @@ Detalhes em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Outros documentos: [re
 
 - Só consulta dispositivos Plug and Play de impressão e filas instaladas. Spooler, portas, rede e drivers não são verificados.
 - Ausência de erro **não prova** que a impressão funciona.
-- Os cenários de erro (código 28 etc.) foram validados apenas com dados simulados; a execução real nesta fase encontrou somente impressoras virtuais.
+- Os cenários de erro (código 28 etc.) foram validados apenas com dados simulados; a execução real nesta fase encontrou somente impressoras virtuais (resultado `Inconclusive`: nenhuma impressora física detectada).
 - Não há interface desktop (WPF) ainda.

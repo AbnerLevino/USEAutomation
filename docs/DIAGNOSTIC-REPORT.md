@@ -44,12 +44,20 @@ Não existe pontuação numérica: um número só seria honesto com uma base est
 
 | Situação observada | `overallStatus` |
 |---|---|
-| Algum dispositivo com `ConfigManagerErrorCode` ≠ 0 | `ProblemConfirmed` (`Confirmed`, severidade High) |
-| Dispositivo sem erro e **nenhuma fila** instalada (fila consultada com sucesso) | `ProblemProbable` (`Probable`, Medium) |
-| Dispositivo sem erro e fila presente, ou fila não verificável | `NoProblemDetected` |
-| Nenhum dispositivo reconhecido | `Inconclusive` (impressoras de rede/virtuais não aparecem como dispositivo local) |
+| Algum dispositivo (qualquer tipo) com `ConfigManagerErrorCode` ≠ 0 | `ProblemConfirmed` (`Confirmed`, severidade High) |
+| Dispositivo **USB** sem erro e **nenhuma fila física/de rede** instalada (fila consultada com sucesso) | `ProblemProbable` (`Probable`, Medium) |
+| Dispositivo **USB** sem erro e fila física presente, ou fila não verificável | `NoProblemDetected` |
+| Só itens virtuais/de sistema, filas de rede sem dispositivo, ou nenhum dispositivo | `Inconclusive` ("nenhuma impressora física detectada") |
 | Fonte de dispositivos indisponível / sem permissão | `Inconclusive`, com a fonte registrada em `sources` |
 | Exceção durante a coleta | `executionStatus` `Failed`/`PermissionDenied`, `overallStatus` `NotEvaluated` |
+
+### Virtual x física
+
+Todas as filas e dispositivos são **listados** em `evidence`, rotulados. Itens virtuais não são removidos: informam o que o Windows tem, mas **não contam como prova de impressora real**.
+
+- **Fila virtual:** a *porta* é `PORTPROMPT:`, `FILE:`, `NUL:`, `SHRFAX:` ou `XPSPort:` (a porta é usada porque o nome muda com o idioma do Windows). Porta desconhecida **não** é presumida virtual.
+- **Dispositivo USB:** o `DeviceID` começa com `USB\` ou `USBPRINT\`.
+- Uma fila de rede (porta `IP_...`) sozinha **não** gera `NoProblemDetected`: a conectividade de rede não é verificada.
 
 Códigos de erro com descrição própria: 10, 22, 24, 28, 43, 45; os demais recebem uma mensagem genérica com o número.
 

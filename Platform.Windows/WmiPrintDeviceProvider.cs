@@ -16,7 +16,7 @@ public sealed class WmiPrintDeviceProvider : IPrintDeviceProvider
         "SELECT Name, DeviceID, ConfigManagerErrorCode FROM Win32_PnPEntity " +
         "WHERE PNPClass = 'Printer' OR PNPClass = 'PrintQueue' OR Service = 'usbprint'";
 
-    private const string PrintersQuery = "SELECT Name FROM Win32_Printer";
+    private const string PrintersQuery = "SELECT Name, PortName FROM Win32_Printer";
 
     public Task<SourceResult<PrintDeviceInfo>> GetPrintDevicesAsync(CancellationToken cancellationToken) =>
         Task.Run(() => Query(DevicesQuery, cancellationToken, o => new PrintDeviceInfo(
@@ -27,7 +27,7 @@ public sealed class WmiPrintDeviceProvider : IPrintDeviceProvider
 
     public Task<SourceResult<InstalledPrinterInfo>> GetInstalledPrintersAsync(CancellationToken cancellationToken) =>
         Task.Run(() => Query(PrintersQuery, cancellationToken,
-            o => new InstalledPrinterInfo(o["Name"]?.ToString() ?? "(sem nome)")),
+            o => new InstalledPrinterInfo(o["Name"]?.ToString() ?? "(sem nome)", o["PortName"]?.ToString())),
             cancellationToken);
 
     private static SourceResult<T> Query<T>(string wql, CancellationToken ct, Func<ManagementBaseObject, T> map)
