@@ -20,12 +20,12 @@ public sealed record ChatPacing(
 
     /// <summary>Ritmo normal, para uma pessoa acompanhar e ter tempo de ler.</summary>
     public static ChatPacing Natural { get; } = new(
-        TimeSpan.FromMilliseconds(350), TimeSpan.FromMilliseconds(6), TimeSpan.FromMilliseconds(1100), TimeSpan.FromMilliseconds(28))
+        TimeSpan.FromMilliseconds(600), TimeSpan.FromMilliseconds(8), TimeSpan.FromMilliseconds(1500), TimeSpan.FromMilliseconds(90))
     {
-        AfterUserMessage = TimeSpan.FromMilliseconds(800),
-        ReadingBase = TimeSpan.FromMilliseconds(200),
-        ReadingPerChar = TimeSpan.FromMilliseconds(8),
-        ReadingMax = TimeSpan.FromMilliseconds(900)
+        AfterUserMessage = TimeSpan.FromMilliseconds(1000),
+        ReadingBase = TimeSpan.FromMilliseconds(500),
+        ReadingPerChar = TimeSpan.FromMilliseconds(15),
+        ReadingMax = TimeSpan.FromMilliseconds(2500)
     };
 
     /// <summary>Sem espera nenhuma, para testes automáticos da janela.</summary>

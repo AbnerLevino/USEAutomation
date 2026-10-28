@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
@@ -32,6 +33,32 @@ public static class Motion
         var rise = new DoubleAnimation(fromY, 0, TimeSpan.FromMilliseconds(280)) { EasingFunction = EaseOut };
         rise.Completed += (_, _) => { move.BeginAnimation(TranslateTransform.YProperty, null); element.RenderTransform = Transform.Identity; };
         move.BeginAnimation(TranslateTransform.YProperty, rise);
+    }
+
+    /// <summary>Acrescenta um trecho ao texto, com fade-in só nele; os anteriores já estão visíveis.</summary>
+    public static void AppendFading(TextBlock target, string piece)
+    {
+        var color = (target.Foreground as SolidColorBrush)?.Color ?? Colors.Black;
+        var brush = new SolidColorBrush(color);
+        target.Inlines.Add(new Run(piece) { Foreground = brush });
+        if (!Enabled) return;
+
+        brush.Opacity = 0;
+        var fade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(350)) { EasingFunction = EaseOut };
+        fade.Completed += (_, _) => { brush.BeginAnimation(Brush.OpacityProperty, null); brush.Opacity = 1; };
+        brush.BeginAnimation(Brush.OpacityProperty, fade);
+    }
+
+    /// <summary>Esmaece o conteúdo de uma fala que já foi lida, para destacar a mais nova.</summary>
+    public static void Dim(UIElement? content, double to = 0.5)
+    {
+        if (content is null || content.Opacity <= to) return;
+        if (!Enabled) { content.Opacity = to; return; }
+
+        var from = content.Opacity;
+        var dim = new DoubleAnimation(from, to, TimeSpan.FromMilliseconds(400)) { EasingFunction = EaseOut };
+        dim.Completed += (_, _) => { content.BeginAnimation(UIElement.OpacityProperty, null); content.Opacity = to; };
+        content.BeginAnimation(UIElement.OpacityProperty, dim);
     }
 
     /// <summary>Os três pontinhos de "digitando…": pulam e acendem em onda, sem parar.</summary>

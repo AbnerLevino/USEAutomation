@@ -1,4 +1,3 @@
-using System.Text;
 using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Controls;
@@ -17,8 +16,25 @@ namespace AutomationPlatform.Host.Desktop;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private readonly ChatRunner _runner = new(new DiagnosticEngine(PrintingComposition.CreateRegistry()));
+    // Modo demonstração: "--demo <cenario>" (ou ASSISTENTE_DEMO) troca o Windows por dados falsos.
+    private static readonly string? DemoName = ReadDemoName();
+
+    private readonly ChatRunner _runner = new(new DiagnosticEngine(CreateRegistry()));
     private readonly CancellationTokenSource _closing = new();
+
+    private static string? ReadDemoName()
+    {
+        var args = Environment.GetCommandLineArgs();
+        var at = Array.FindIndex(args, a => a.Equals("--demo", StringComparison.OrdinalIgnoreCase));
+        return at >= 0 && at + 1 < args.Length ? args[at + 1] : Environment.GetEnvironmentVariable("ASSISTENTE_DEMO");
+    }
+
+    private static DiagnosticRegistry CreateRegistry() =>
+        DemoName is null
+            ? PrintingComposition.CreateRegistry()
+            : PrintingComposition.CreateDemoRegistry(DemoName)
+              ?? throw new InvalidOperationException(
+                  $"Cenário de demonstração desconhecido: '{DemoName}'. Use um destes: {string.Join(", ", DemoPrintingProvider.Scenarios.Keys)}.");
 
     // ASSISTENTE_RITMO=instantaneo existe só para os testes automáticos da janela.
     private readonly ChatPacing _pacing =
@@ -27,6 +43,13 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        if (DemoName is not null)
+        {
+            Title += " (DEMONSTRAÇÃO)";
+            NewBubble(fromComputer: true, out var warning);
+            warning.Text = $"⚠ MODO DEMONSTRAÇÃO: os dados abaixo são FALSOS (cenário \"{DemoName}\"). Nada do seu computador é lido.";
+            warning.FontWeight = FontWeights.SemiBold;
+        }
         NewBubble(fromComputer: true, out var greeting);
         greeting.Text = "Olá! Escolha uma das opções abaixo e eu mostro, passo a passo, o que estou verificando.";
         Closing += (_, _) => _closing.Cancel();
@@ -90,18 +113,24 @@ public partial class MainWindow : Window
     /// <summary>Faz o texto aparecer palavra por palavra, com a rolagem acompanhando.</summary>
     private async Task StreamAsync(TextBlock target, string text)
     {
-        var shown = new StringBuilder();
         foreach (var token in ChatPacing.Tokens(text))
         {
-            shown.Append(token);
-            target.Text = shown.ToString();
+            Motion.AppendFading(target, token);
             SmoothScroll.ToEnd(Scroll);
             await Wait(_pacing.Delay(token));
         }
     }
 
+    /// <summary>Tudo o que já está na conversa fica mais apagado quando uma fala nova chega.</summary>
+    private void DimPrevious()
+    {
+        foreach (var child in Chat.Children)
+            if (child is Border border) Motion.Dim(border.Child);
+    }
+
     private async Task ShowCardAsync(ChatMessage message)
     {
+        DimPrevious();
         var color = message.Tone switch
         {
             ChatTone.Good => "#16A34A",
@@ -146,6 +175,7 @@ public partial class MainWindow : Window
     /// <summary>Bolha do computador com os pontinhos de "digitando" animados.</summary>
     private Border NewTypingBubble()
     {
+        DimPrevious();
         var bubble = BubbleShell(fromComputer: true);
         bubble.Child = Motion.TypingDots(Brush("#9CA3AF"));
         Chat.Children.Add(bubble);
@@ -157,6 +187,7 @@ public partial class MainWindow : Window
     private Border NewBubble(bool fromComputer, out TextBlock text)
     {
         text = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brush(fromComputer ? "#111827" : "#FFFFFF") };
+        DimPrevious();
         var bubble = BubbleShell(fromComputer);
         bubble.Child = text;
         Chat.Children.Add(bubble);
