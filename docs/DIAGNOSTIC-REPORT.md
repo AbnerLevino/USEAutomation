@@ -1,6 +1,6 @@
 # Formato do relatório
 
-JSON em camelCase, enums como texto, versão do esquema em `schemaVersion` (atual: **1.0**). A versão muda quando o formato muda de forma incompatível.
+JSON em camelCase, enums como texto, versão do esquema em `schemaVersion` (atual: **1.1**). A versão muda quando o formato muda de forma incompatível; a 1.1 apenas acrescentou `actions` (correções tentadas, com status, confirmação e verificação posterior), então relatórios 1.0 continuam válidos.
 
 ## Campos
 

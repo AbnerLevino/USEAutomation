@@ -3,7 +3,8 @@ namespace AutomationPlatform.Contracts;
 /// <summary>Versão do formato JSON. Muda quando o formato muda de forma incompatível.</summary>
 public static class ReportSchema
 {
-    public const string CurrentVersion = "1.0";
+    // 1.1 acrescentou "actions". Relatórios 1.0 continuam válidos: o campo novo vem vazio.
+    public const string CurrentVersion = "1.1";
 }
 
 /// <summary>Resultado completo de uma execução. É o que sai em JSON.</summary>
@@ -21,6 +22,9 @@ public sealed record DiagnosticReport
     public IReadOnlyList<DataSourceResult> Sources { get; init; } = [];
     public IReadOnlyList<string> Limitations { get; init; } = [];
     public IReadOnlyList<Recommendation> Recommendations { get; init; } = [];
+
+    /// <summary>Correções tentadas (confirmadas ou não) a partir deste diagnóstico. Vazio = nenhuma tentativa.</summary>
+    public IReadOnlyList<ActionRecord> Actions { get; init; } = [];
 
     /// <summary>Descrição técnica do erro quando a execução não foi <see cref="ExecutionStatus.Completed"/>.</summary>
     public string? ErrorMessage { get; init; }

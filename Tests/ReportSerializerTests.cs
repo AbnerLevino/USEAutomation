@@ -53,8 +53,41 @@ public class ReportSerializerTests
     {
         var json = ReportSerializer.Serialize(SampleReport());
 
-        Assert.Contains("\"schemaVersion\": \"1.0\"", json);
+        Assert.Contains("\"schemaVersion\": \"1.1\"", json);
         Assert.Contains("\"overallStatus\": \"ProblemConfirmed\"", json);
         Assert.Contains("\"executionStatus\": \"Completed\"", json);
+    }
+
+    [Fact]
+    public void Relatorio_1_0_antigo_sem_acoes_continua_valido()
+    {
+        var json = ReportSerializer.Serialize(SampleReport())
+            .Replace("\"schemaVersion\": \"1.1\"", "\"schemaVersion\": \"1.0\"");
+        var withoutActions = System.Text.RegularExpressions.Regex.Replace(json, "\\s*\"actions\": \\[\\],?", "");
+
+        var back = ReportSerializer.Deserialize(withoutActions);
+
+        Assert.Equal("1.0", back.SchemaVersion);
+        Assert.Empty(back.Actions);
+        Assert.Equal("Resumo", back.Summary);
+    }
+
+    [Fact]
+    public void Acoes_tentadas_vao_e_voltam_no_json_com_enums_em_texto()
+    {
+        var record = new ActionRecord
+        {
+            ActionId = "printing.printer.resume", DisplayName = "Retomar impressora", Level = ActionLevel.N1,
+            PrinterName = "Impressora X", StartedAtUtc = new DateTimeOffset(2026, 1, 1, 12, 0, 3, TimeSpan.Zero),
+            CompletedAtUtc = new DateTimeOffset(2026, 1, 1, 12, 0, 4, TimeSpan.Zero),
+            Status = ActionStatus.ElevationDenied, Confirmed = true, Summary = "Nada foi alterado."
+        };
+
+        var json = ReportSerializer.Serialize(SampleReport() with { Actions = [record] });
+        var back = ReportSerializer.Deserialize(json);
+
+        Assert.Contains("\"status\": \"ElevationDenied\"", json);
+        Assert.Contains("\"level\": \"N1\"", json);
+        Assert.Equal(record, Assert.Single(back.Actions));
     }
 }
