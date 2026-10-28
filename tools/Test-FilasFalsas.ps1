@@ -98,6 +98,7 @@ try {
         Write-Host "Pause() retornou $($r.ReturnValue) (0 = sucesso)"
         Estado-Windows
         Rodar-Programa 'printing.printer-state'
+        Rodar-Programa 'printing.not-printing'
     }
 
     if ('Trabalhos' -in $Cenarios) {
@@ -106,6 +107,7 @@ try {
         Start-Sleep -Seconds 2
         Estado-Windows
         Rodar-Programa 'printing.queue'
+        Rodar-Programa 'printing.not-printing'
     }
 
     if ('Offline' -in $Cenarios) {
@@ -114,6 +116,7 @@ try {
         Set-CimInstance -InputObject $n -Property @{ WorkOffline = $true }
         Estado-Windows
         Rodar-Programa 'printing.printer-state'
+        Rodar-Programa 'printing.full'
     }
 }
 finally {

@@ -19,7 +19,7 @@ Desenho aprovado em [superpowers/specs/2026-10-28-diagnostico-e-correcao-de-impr
 | Fase | Entrega | Estado |
 |---|---|---|
 | A | Verificações atômicas somente leitura: spooler, fila, estado (offline/pausada/erro), padrão, porta, erro de dispositivo | **Feita** (141 testes; validada no Windows real) |
-| B | Cenários e causa provável ("Não está imprimindo"), diagnóstico completo | Pendente |
+| B | Cenários e causa provável ("Não está imprimindo"), diagnóstico completo | **Feita** (181 testes; `run printing.not-printing` e `run printing.full`) |
 | C | Contrato de ação, pipeline e relatório 1.1 | Pendente |
 | D | Camada de interação (`IUserInteraction`) e CLI interativo | Pendente |
 | E | Executor elevado com UAC | Pendente |

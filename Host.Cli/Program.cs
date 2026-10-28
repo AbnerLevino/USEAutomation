@@ -12,6 +12,8 @@ var systemProvider = new WmiPrintSystemProvider();
 
 var deviceProvider = new WmiPrintDeviceProvider();
 
+registry.Register(NotPrintingScenario.Create(systemProvider, deviceProvider));
+registry.Register(FullPrintingDiagnostic.Create(systemProvider, deviceProvider));
 registry.Register(new PrinterRecognitionDiagnostic(deviceProvider));
 registry.Register(new CheckDiagnostic<IReadOnlyList<PrintDeviceInfo>>(new DeviceErrorCheck(deviceProvider)));
 registry.Register(new CheckDiagnostic<DefaultPrinterFacts>(new DefaultPrinterCheck(systemProvider)));
