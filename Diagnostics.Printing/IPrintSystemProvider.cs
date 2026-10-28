@@ -18,7 +18,21 @@ public interface IPrintSystemProvider
 
     /// <summary>Estado de cada fila de impressão instalada.</summary>
     Task<SourceResult<PrinterStateInfo>> GetPrinterStatesAsync(CancellationToken cancellationToken);
+
+    /// <summary>Se o Windows escolhe a impressora padrão sozinho (a última usada) ou o usuário a fixa.</summary>
+    Task<SourceResult<DefaultPrinterModeInfo>> GetDefaultPrinterModeAsync(CancellationToken cancellationToken);
+
+    /// <summary>Portas TCP/IP configuradas (só a configuração; nada é testado na rede).</summary>
+    Task<SourceResult<NetworkPortInfo>> GetNetworkPortsAsync(CancellationToken cancellationToken);
 }
+
+/// <param name="WindowsManagesDefault">true = o Windows troca o padrão sozinho; false = o usuário o fixou.</param>
+public sealed record DefaultPrinterModeInfo(bool WindowsManagesDefault);
+
+/// <param name="Name">Nome da porta (ex.: IP_192.168.0.5).</param>
+/// <param name="HostAddress">Endereço configurado; null = não informado.</param>
+/// <param name="PortNumber">Número da porta TCP; null = não informado.</param>
+public sealed record NetworkPortInfo(string Name, string? HostAddress, int? PortNumber);
 
 /// <param name="PrinterName">Fila à qual o trabalho pertence.</param>
 /// <param name="JobId">Número do trabalho.</param>

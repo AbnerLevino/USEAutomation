@@ -10,7 +10,12 @@ Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false
 var registry = new DiagnosticRegistry();
 var systemProvider = new WmiPrintSystemProvider();
 
-registry.Register(new PrinterRecognitionDiagnostic(new WmiPrintDeviceProvider()));
+var deviceProvider = new WmiPrintDeviceProvider();
+
+registry.Register(new PrinterRecognitionDiagnostic(deviceProvider));
+registry.Register(new CheckDiagnostic<IReadOnlyList<PrintDeviceInfo>>(new DeviceErrorCheck(deviceProvider)));
+registry.Register(new CheckDiagnostic<DefaultPrinterFacts>(new DefaultPrinterCheck(systemProvider)));
+registry.Register(new CheckDiagnostic<IReadOnlyList<PrinterPortInfo>>(new PortCheck(systemProvider)));
 registry.Register(new CheckDiagnostic<ServiceInfo>(new SpoolerCheck(systemProvider)));
 registry.Register(new CheckDiagnostic<IReadOnlyList<PrinterQueueSummary>>(new QueueCheck(systemProvider)));
 registry.Register(new CheckDiagnostic<IReadOnlyList<PrinterAssessment>>(new PrinterStateCheck(systemProvider)));

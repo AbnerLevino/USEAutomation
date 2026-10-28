@@ -12,6 +12,22 @@ A ordem pode mudar conforme os resultados técnicos e as respostas sobre o USE.
 | 6 | Integração oficialmente suportada com o USE | Bloqueada: depende das respostas em [USE-INTEGRATION.md](USE-INTEGRATION.md) |
 | 7 | Outras categorias de automação (rede, serviços, etc.) | Pendente |
 
+## Plano em andamento: diagnóstico e correção assistida
+
+Desenho aprovado em [superpowers/specs/2026-10-28-diagnostico-e-correcao-de-impressoras-design.md](superpowers/specs/2026-10-28-diagnostico-e-correcao-de-impressoras-design.md).
+
+| Fase | Entrega | Estado |
+|---|---|---|
+| A | Verificações atômicas somente leitura: spooler, fila, estado (offline/pausada/erro), padrão, porta, erro de dispositivo | **Feita** (141 testes; validada no Windows real) |
+| B | Cenários e causa provável ("Não está imprimindo"), diagnóstico completo | Pendente |
+| C | Contrato de ação, pipeline e relatório 1.1 | Pendente |
+| D | Camada de interação (`IUserInteraction`) e CLI interativo | Pendente |
+| E | Executor elevado com UAC | Pendente |
+| F | Primeiro problema ponta a ponta | Pendente |
+| G | Interface WPF | Pendente |
+
+Verificações disponíveis (`run <id>`): `printing.spooler`, `printing.queue`, `printing.printer-state`, `printing.default-printer`, `printing.port`, `printing.device-error`, além de `printing.device-recognition`.
+
 ## Dívidas conhecidas
 
 - Validar os cenários de erro (ex.: código 28) com um dispositivo real; hoje só estão cobertos por dados simulados.

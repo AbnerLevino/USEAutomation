@@ -1,4 +1,7 @@
+using System.Security;
+using AutomationPlatform.Contracts;
 using AutomationPlatform.Diagnostics.Printing;
+using Microsoft.Win32;
 
 namespace AutomationPlatform.Platform.Windows;
 
@@ -13,6 +16,10 @@ public sealed class WmiPrintSystemProvider : IPrintSystemProvider
 
     // Sem Document, Owner ou qualquer coluna que identifique conteúdo ou pessoa.
     private const string JobsQuery = "SELECT Name, StatusMask FROM Win32_PrintJob";
+
+    private const string NetworkPortsQuery = "SELECT Name, HostAddress, PortNumber FROM Win32_TCPIPPrinterPort";
+
+    private const string DefaultModeKey = @"Software\Microsoft\Windows NT\CurrentVersion\Windows";
 
     private const string PrinterStatesQuery =
         "SELECT Name, PortName, WorkOffline, ExtendedPrinterStatus, DetectedErrorState, Default FROM Win32_Printer";
@@ -40,6 +47,33 @@ public sealed class WmiPrintSystemProvider : IPrintSystemProvider
                 .ToList();
             return SourceResult<PrintJobInfo>.Ok(jobs);
         }, cancellationToken);
+
+    public Task<SourceResult<DefaultPrinterModeInfo>> GetDefaultPrinterModeAsync(CancellationToken cancellationToken) =>
+        Task.Run(() =>
+        {
+            try
+            {
+                // LegacyDefaultPrinterMode = 1: o usuário fixou a padrão. Ausente ou 0: o Windows a gerencia.
+                using var key = Registry.CurrentUser.OpenSubKey(DefaultModeKey);
+                var fixedByUser = key?.GetValue("LegacyDefaultPrinterMode") is int value && value == 1;
+                return SourceResult<DefaultPrinterModeInfo>.Ok([new DefaultPrinterModeInfo(!fixedByUser)]);
+            }
+            catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException)
+            {
+                return SourceResult<DefaultPrinterModeInfo>.Fail(SourceStatus.PermissionDenied, ex.Message);
+            }
+            catch (IOException ex)
+            {
+                return SourceResult<DefaultPrinterModeInfo>.Fail(SourceStatus.Unavailable, ex.Message);
+            }
+        }, cancellationToken);
+
+    public Task<SourceResult<NetworkPortInfo>> GetNetworkPortsAsync(CancellationToken cancellationToken) =>
+        Task.Run(() => WmiQuery.Run(NetworkPortsQuery, cancellationToken, o => new NetworkPortInfo(
+            o["Name"]?.ToString() ?? "(sem nome)",
+            o["HostAddress"]?.ToString(),
+            o["PortNumber"] is null ? null : Convert.ToInt32(o["PortNumber"]))),
+            cancellationToken);
 
     public Task<SourceResult<PrinterStateInfo>> GetPrinterStatesAsync(CancellationToken cancellationToken) =>
         Task.Run(() => WmiQuery.Run(PrinterStatesQuery, cancellationToken, o => new PrinterStateInfo(
