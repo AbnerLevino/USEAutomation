@@ -10,11 +10,15 @@ namespace AutomationPlatform.Platform.Windows;
 /// </summary>
 public static class PrintingComposition
 {
-    public static DiagnosticRegistry CreateRegistry()
-    {
-        var systemProvider = new WmiPrintSystemProvider();
-        var deviceProvider = new WmiPrintDeviceProvider();
+    public static DiagnosticRegistry CreateRegistry() =>
+        CreateRegistry(new WmiPrintSystemProvider(), new WmiPrintDeviceProvider());
 
+    /// <summary>Mesmos diagnósticos sobre dados falsos (modo demonstração); null se o cenário não existe.</summary>
+    public static DiagnosticRegistry? CreateDemoRegistry(string scenario) =>
+        DemoPrintingProvider.Create(scenario) is { } demo ? CreateRegistry(demo, demo) : null;
+
+    private static DiagnosticRegistry CreateRegistry(IPrintSystemProvider systemProvider, IPrintDeviceProvider deviceProvider)
+    {
         var registry = new DiagnosticRegistry();
         registry.Register(NotPrintingScenario.Create(systemProvider, deviceProvider));
         registry.Register(FullPrintingDiagnostic.Create(systemProvider, deviceProvider));
