@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Validação com impressoras FALSAS no Windows real. Cria filas de teste, provoca problemas,
   roda o programa, mostra o que o Windows disse e o que o programa respondeu, e LIMPA tudo.
