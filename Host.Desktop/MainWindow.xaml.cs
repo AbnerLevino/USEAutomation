@@ -1,3 +1,4 @@
+using System.Text;
 using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Controls;
@@ -9,21 +10,25 @@ using AutomationPlatform.Platform.Windows;
 namespace AutomationPlatform.Host.Desktop;
 
 /// <summary>
-/// Janela de chat SOMENTE de leitura: o usuário não digita, só escolhe um botão. As falas do computador
-/// chegam em tempo real, uma de cada vez, com "digitando…" entre elas. Sem regra de negócio aqui.
+/// Janela de chat SOMENTE de leitura: o usuário não digita, só escolhe um botão. Ao abrir, ela NÃO
+/// inicia nada: só mostra a saudação e as opções. As falas do computador aparecem como num assistente:
+/// pontinhos de "digitando" que viram a própria fala, texto surgindo palavra por palavra, cada fala
+/// subindo e aparecendo com suavidade. A janela não fecha sozinha. Sem regra de negócio aqui.
 /// </summary>
 public partial class MainWindow : Window
 {
-    // Tempo entre uma fala e outra, só para dar para acompanhar o que o computador está fazendo.
-    private static readonly TimeSpan Pace = TimeSpan.FromMilliseconds(550);
-
     private readonly ChatRunner _runner = new(new DiagnosticEngine(PrintingComposition.CreateRegistry()));
     private readonly CancellationTokenSource _closing = new();
+
+    // ASSISTENTE_RITMO=instantaneo existe só para os testes automáticos da janela.
+    private readonly ChatPacing _pacing =
+        Environment.GetEnvironmentVariable("ASSISTENTE_RITMO") == "instantaneo" ? ChatPacing.Instant : ChatPacing.Natural;
 
     public MainWindow()
     {
         InitializeComponent();
-        AddBubble("Olá! Escolha uma opção abaixo e eu mostro, passo a passo, o que estou verificando.", fromComputer: true);
+        NewBubble(fromComputer: true, out var greeting);
+        greeting.Text = "Olá! Escolha uma das opções abaixo e eu mostro, passo a passo, o que estou verificando.";
         Closing += (_, _) => _closing.Cancel();
     }
 
@@ -36,7 +41,11 @@ public partial class MainWindow : Window
     private async Task StartAsync(string diagnosticId, string whatTheUserChose)
     {
         SetButtons(enabled: false);
-        AddBubble(whatTheUserChose, fromComputer: false);
+        NewBubble(fromComputer: false, out var choice);
+        choice.Text = whatTheUserChose;
+
+        // Dá um instante para a escolha "ser lida" antes de o computador começar a digitar.
+        await Wait(_pacing.AfterUserMessage);
 
         var channel = Channel.CreateUnbounded<ChatMessage>();
         var producer = Task.Run(async () =>
@@ -47,51 +56,51 @@ public partial class MainWindow : Window
 
         try
         {
+            string? previous = null;
             await foreach (var message in channel.Reader.ReadAllAsync(_closing.Token))
             {
-                var typing = AddBubble("digitando…", fromComputer: true, subtle: true);
-                await Task.Delay(Pace, _closing.Token);
-                Chat.Children.Remove(typing);
-                Show(message);
+                // Tempo para ler a fala anterior; só então a próxima começa a ser digitada.
+                await Wait(_pacing.Reading(previous));
+                previous = message.Text + message.Detail;
+
+                // Como num chatbot: aparecem os pontinhos, e a MESMA bolha vira a fala.
+                var typing = NewTypingBubble();
+                await Wait(_pacing.Thinking(message.Text + message.Detail));
+
+                if (message.Kind == ChatKind.Narration)
+                {
+                    var text = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brush("#111827") };
+                    typing.Child = text;
+                    await StreamAsync(text, message.Text);
+                }
+                else
+                {
+                    Chat.Children.Remove(typing);
+                    await ShowCardAsync(message);
+                }
             }
             await producer;
         }
-        catch (OperationCanceledException) { /* janela fechada */ }
+        catch (OperationCanceledException) { /* a janela foi fechada pelo usuário */ }
         finally { SetButtons(enabled: true); }
     }
 
-    private void Show(ChatMessage message)
-    {
-        if (message.Kind == ChatKind.Narration) AddBubble(message.Text, fromComputer: true);
-        else AddCard(message);
-    }
+    private Task Wait(TimeSpan time) => time > TimeSpan.Zero ? Task.Delay(time, _closing.Token) : Task.CompletedTask;
 
-    private Border AddBubble(string text, bool fromComputer, bool subtle = false)
+    /// <summary>Faz o texto aparecer palavra por palavra, com a rolagem acompanhando.</summary>
+    private async Task StreamAsync(TextBlock target, string text)
     {
-        var bubble = new Border
+        var shown = new StringBuilder();
+        foreach (var token in ChatPacing.Tokens(text))
         {
-            Background = Brush(fromComputer ? "#FFFFFF" : "#2563EB"),
-            BorderBrush = Brush("#E5E7EB"),
-            BorderThickness = new Thickness(fromComputer ? 1 : 0),
-            CornerRadius = new CornerRadius(12),
-            Padding = new Thickness(12, 8, 12, 8),
-            Margin = new Thickness(0, 0, 0, 8),
-            MaxWidth = 440,
-            HorizontalAlignment = fromComputer ? HorizontalAlignment.Left : HorizontalAlignment.Right,
-            Child = new TextBlock
-            {
-                Text = text,
-                TextWrapping = TextWrapping.Wrap,
-                Foreground = Brush(fromComputer ? (subtle ? "#9CA3AF" : "#111827") : "#FFFFFF"),
-                FontStyle = subtle ? FontStyles.Italic : FontStyles.Normal
-            }
-        };
-        Chat.Children.Add(bubble);
-        Scroll.ScrollToEnd();
-        return bubble;
+            shown.Append(token);
+            target.Text = shown.ToString();
+            SmoothScroll.ToEnd(Scroll);
+            await Wait(_pacing.Delay(token));
+        }
     }
 
-    private void AddCard(ChatMessage message)
+    private async Task ShowCardAsync(ChatMessage message)
     {
         var color = message.Tone switch
         {
@@ -102,13 +111,7 @@ public partial class MainWindow : Window
         };
 
         var body = new StackPanel();
-        body.Children.Add(new TextBlock { Text = message.Text, FontWeight = FontWeights.SemiBold, FontSize = 16, Foreground = Brush(color), TextWrapping = TextWrapping.Wrap });
-        if (!string.IsNullOrWhiteSpace(message.Detail))
-            body.Children.Add(new TextBlock { Text = message.Detail, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0), Foreground = Brush("#374151") });
-        foreach (var line in message.Lines ?? [])
-            body.Children.Add(new TextBlock { Text = line, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0), Foreground = Brush("#111827") });
-
-        Chat.Children.Add(new Border
+        var card = new Border
         {
             Background = Brush("#FFFFFF"),
             BorderBrush = Brush(color),
@@ -119,9 +122,60 @@ public partial class MainWindow : Window
             MaxWidth = 480,
             HorizontalAlignment = HorizontalAlignment.Left,
             Child = body
-        });
-        Scroll.ScrollToEnd();
+        };
+        Chat.Children.Add(card);
+        Motion.Enter(card);
+        SmoothScroll.ToEnd(Scroll);
+
+        var headline = new TextBlock { FontWeight = FontWeights.SemiBold, FontSize = 16, Foreground = Brush(color), TextWrapping = TextWrapping.Wrap };
+        body.Children.Add(headline);
+        await StreamAsync(headline, message.Text);
+
+        var rest = new List<string>();
+        if (!string.IsNullOrWhiteSpace(message.Detail)) rest.Add(message.Detail);
+        rest.AddRange(message.Lines ?? []);
+        foreach (var line in rest)
+        {
+            var block = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0), Foreground = Brush("#111827") };
+            body.Children.Add(block);
+            await StreamAsync(block, line);
+        }
+        SmoothScroll.ToEnd(Scroll);
     }
+
+    /// <summary>Bolha do computador com os pontinhos de "digitando" animados.</summary>
+    private Border NewTypingBubble()
+    {
+        var bubble = BubbleShell(fromComputer: true);
+        bubble.Child = Motion.TypingDots(Brush("#9CA3AF"));
+        Chat.Children.Add(bubble);
+        Motion.Enter(bubble);
+        SmoothScroll.ToEnd(Scroll);
+        return bubble;
+    }
+
+    private Border NewBubble(bool fromComputer, out TextBlock text)
+    {
+        text = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brush(fromComputer ? "#111827" : "#FFFFFF") };
+        var bubble = BubbleShell(fromComputer);
+        bubble.Child = text;
+        Chat.Children.Add(bubble);
+        Motion.Enter(bubble);
+        SmoothScroll.ToEnd(Scroll);
+        return bubble;
+    }
+
+    private static Border BubbleShell(bool fromComputer) => new()
+    {
+        Background = Brush(fromComputer ? "#FFFFFF" : "#2563EB"),
+        BorderBrush = Brush("#E5E7EB"),
+        BorderThickness = new Thickness(fromComputer ? 1 : 0),
+        CornerRadius = new CornerRadius(12),
+        Padding = new Thickness(12, 8, 12, 8),
+        Margin = new Thickness(0, 0, 0, 8),
+        MaxWidth = 440,
+        HorizontalAlignment = fromComputer ? HorizontalAlignment.Left : HorizontalAlignment.Right
+    };
 
     private void SetButtons(bool enabled) => FullButton.IsEnabled = NotPrintingButton.IsEnabled = enabled;
 
