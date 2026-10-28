@@ -3,16 +3,16 @@ using AutomationPlatform.Contracts;
 namespace AutomationPlatform.Diagnostics.Printing;
 
 /// <summary>Resumo dos trabalhos de uma fila. Nunca contém nomes de documentos.</summary>
-/// <param name="StuckJobs">Trabalhos em erro, em exclusão ou bloqueados na fila do dispositivo.</param>
-/// <param name="HeldJobs">Trabalhos parados por uma condição da impressora (pausa, offline, sem papel, intervenção); são consequência dela, não "presos".</param>
-public sealed record PrinterQueueSummary(string PrinterName, int TotalJobs, int StuckJobs, int HeldJobs);
+/// <param name="StuckJobs">Trabalhos que o próprio Windows marca como erro, em exclusão ou bloqueados na fila do dispositivo.</param>
+public sealed record PrinterQueueSummary(string PrinterName, int TotalJobs, int StuckJobs);
 
 /// <summary>
 /// Verifica se há trabalhos presos nas filas. Só lê. Regras:
 /// <list type="number">
 /// <item>Fonte não consultada → NotEvaluable.</item>
 /// <item>Algum trabalho em erro, em exclusão ou bloqueado → Problem (confirmado pelo Windows).</item>
-/// <item>Sem trabalhos presos → Healthy (trabalhos esperando por pausa/offline não são "presos").</item>
+/// <item>Sem trabalhos presos → Healthy. Trabalho parado porque a fila está pausada ou offline NÃO é "preso":
+/// o Windows nem o marca (StatusMask 0); a causa é vista em <see cref="PrinterStateCheck"/> e cruzada pelo cenário.</item>
 /// </list>
 /// </summary>
 public sealed class QueueCheck(IPrintSystemProvider provider) : ICheck<IReadOnlyList<PrinterQueueSummary>>
@@ -21,7 +21,6 @@ public sealed class QueueCheck(IPrintSystemProvider provider) : ICheck<IReadOnly
     private const string SourceName = "Trabalhos de impressão (WMI Win32_PrintJob)";
 
     private const PrintJobStatus StuckMask = PrintJobStatus.Error | PrintJobStatus.Deleting | PrintJobStatus.BlockedDeviceQueue;
-    private const PrintJobStatus HeldMask = PrintJobStatus.Paused | PrintJobStatus.Offline | PrintJobStatus.PaperOut | PrintJobStatus.UserIntervention;
 
     public string Id => CheckId;
     public string DisplayName => "Fila de impressão (trabalhos presos)";
@@ -36,6 +35,7 @@ public sealed class QueueCheck(IPrintSystemProvider provider) : ICheck<IReadOnly
         string[] limitations =
         [
             "Só são considerados presos os trabalhos que o Windows marca como erro, em exclusão ou bloqueados; não há limite de tempo.",
+            "Quando a FILA está pausada ou offline, o Windows não marca isso nos trabalhos (observado no Windows real); essa causa só aparece na verificação do estado das filas.",
             "Fila vazia ou sem trabalhos presos não prova que a impressão funciona."
         ];
 
@@ -56,8 +56,7 @@ public sealed class QueueCheck(IPrintSystemProvider provider) : ICheck<IReadOnly
             .Select(g => new PrinterQueueSummary(
                 g.Key,
                 g.Count(),
-                g.Count(j => j.Status is { } s && (s & StuckMask) != 0),
-                g.Count(j => j.Status is { } s && (s & StuckMask) == 0 && (s & HeldMask) != 0)))
+                g.Count(j => j.Status is { } s && (s & StuckMask) != 0)))
             .ToList();
 
         var evidence = new List<Evidence>();
@@ -71,7 +70,7 @@ public sealed class QueueCheck(IPrintSystemProvider provider) : ICheck<IReadOnly
             {
                 Id = evidenceId,
                 Source = SourceName,
-                Description = $"Fila '{queue.PrinterName}': {queue.TotalJobs} trabalho(s); {queue.StuckJobs} preso(s); {queue.HeldJobs} aguardando por pausa, offline ou intervenção."
+                Description = $"Fila '{queue.PrinterName}': {queue.TotalJobs} trabalho(s); {queue.StuckJobs} marcado(s) pelo Windows como preso(s)."
             });
 
             if (queue.StuckJobs == 0) continue;

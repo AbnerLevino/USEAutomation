@@ -57,8 +57,18 @@ public class QueueCheckTests
         Assert.Equal(CheckVerdict.Healthy, result.Verdict);
         var queue = Assert.Single(result.Facts!);
         Assert.Equal(0, queue.StuckJobs);
-        Assert.Equal(1, queue.HeldJobs);
+        Assert.Equal(1, queue.TotalJobs);
         Assert.Empty(result.Findings);
+    }
+
+    [Fact]
+    public async Task Avisa_que_pausa_ou_offline_da_fila_nao_aparece_nos_trabalhos()
+    {
+        var result = await RunAsync(Jobs(Job("Fila A", 1, PrintJobStatus.None)));
+
+        Assert.Contains(result.Limitations, l => l.Contains("FILA está pausada ou offline"));
+        // A evidência não afirma nada sobre "aguardando por pausa": o trabalho não informa isso.
+        Assert.DoesNotContain(result.Evidence, e => e.Description.Contains("aguardando"));
     }
 
     [Fact]
@@ -98,12 +108,12 @@ public class QueueCheckTests
     }
 
     [Fact]
-    public async Task Evidencia_nunca_expoe_nomes_de_documentos()
+    public void O_contrato_do_trabalho_nao_tem_campo_para_o_documento()
     {
-        // O contrato nem tem campo para o documento: só fila, número e estado.
-        Assert.DoesNotContain(typeof(PrintJobInfo).GetProperties(), p => p.Name.Contains("Document", StringComparison.OrdinalIgnoreCase));
-        var result = await RunAsync(Jobs(Job("Fila A", 1, PrintJobStatus.Error)));
-        Assert.All(result.Evidence, e => Assert.DoesNotContain("documento", e.Description.Replace("documentos", ""), StringComparison.OrdinalIgnoreCase));
+        // Privacidade por construção: só fila, número e estado chegam às verificações.
+        Assert.DoesNotContain(typeof(PrintJobInfo).GetProperties(),
+            p => p.Name.Contains("Document", StringComparison.OrdinalIgnoreCase) ||
+                 p.Name.Contains("Owner", StringComparison.OrdinalIgnoreCase));
     }
 
     [Theory]
