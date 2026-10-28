@@ -12,5 +12,7 @@ var systemProvider = new WmiPrintSystemProvider();
 
 registry.Register(new PrinterRecognitionDiagnostic(new WmiPrintDeviceProvider()));
 registry.Register(new CheckDiagnostic<ServiceInfo>(new SpoolerCheck(systemProvider)));
+registry.Register(new CheckDiagnostic<IReadOnlyList<PrinterQueueSummary>>(new QueueCheck(systemProvider)));
+registry.Register(new CheckDiagnostic<IReadOnlyList<PrinterAssessment>>(new PrinterStateCheck(systemProvider)));
 
 return await CliApp.RunAsync(args, registry, Console.Out, Console.Error);

@@ -10,9 +10,11 @@ internal static class PrinterClassifier
     private static readonly string[] VirtualPorts = ["PORTPROMPT:", "FILE:", "NUL:", "SHRFAX:", "XPSPort:"];
 
     /// <summary>true = fila virtual; false = porta física/de rede ou porta desconhecida (não presumimos virtual).</summary>
-    public static bool IsVirtualQueue(InstalledPrinterInfo printer) =>
-        printer.PortName is not null &&
-        VirtualPorts.Contains(printer.PortName.Trim(), StringComparer.OrdinalIgnoreCase);
+    public static bool IsVirtualQueue(InstalledPrinterInfo printer) => IsVirtualPort(printer.PortName);
+
+    public static bool IsVirtualPort(string? portName) =>
+        portName is not null &&
+        VirtualPorts.Contains(portName.Trim(), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Dispositivo ligado por USB (sustenta que existe um equipamento conectado).</summary>
     public static bool IsUsbDevice(PrintDeviceInfo device) =>
