@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AutomationPlatform.Host.Desktop</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Contracts\AutomationPlatform.Contracts.csproj" />
+    <ProjectReference Include="..\Engine\AutomationPlatform.Engine.csproj" />
+    <ProjectReference Include="..\Platform.Windows\AutomationPlatform.Platform.Windows.csproj" />
+  </ItemGroup>
+
+</Project>

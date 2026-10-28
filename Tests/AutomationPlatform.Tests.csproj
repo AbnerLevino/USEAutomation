@@ -23,6 +23,7 @@
     <ProjectReference Include="..\Engine\AutomationPlatform.Engine.csproj" />
     <ProjectReference Include="..\Diagnostics.Printing\AutomationPlatform.Diagnostics.Printing.csproj" />
     <ProjectReference Include="..\Host.Cli\AutomationPlatform.Host.Cli.csproj" />
+    <ProjectReference Include="..\Host.Desktop\AutomationPlatform.Host.Desktop.csproj" />
   </ItemGroup>
 
 </Project>

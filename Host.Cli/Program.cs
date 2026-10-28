@@ -1,25 +1,7 @@
 ﻿using System.Text;
-using AutomationPlatform.Contracts;
-using AutomationPlatform.Diagnostics.Printing;
-using AutomationPlatform.Engine;
 using AutomationPlatform.Host.Cli;
 using AutomationPlatform.Platform.Windows;
 
 Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
-var registry = new DiagnosticRegistry();
-var systemProvider = new WmiPrintSystemProvider();
-
-var deviceProvider = new WmiPrintDeviceProvider();
-
-registry.Register(NotPrintingScenario.Create(systemProvider, deviceProvider));
-registry.Register(FullPrintingDiagnostic.Create(systemProvider, deviceProvider));
-registry.Register(new PrinterRecognitionDiagnostic(deviceProvider));
-registry.Register(new CheckDiagnostic<IReadOnlyList<PrintDeviceInfo>>(new DeviceErrorCheck(deviceProvider)));
-registry.Register(new CheckDiagnostic<DefaultPrinterFacts>(new DefaultPrinterCheck(systemProvider)));
-registry.Register(new CheckDiagnostic<IReadOnlyList<PrinterPortInfo>>(new PortCheck(systemProvider)));
-registry.Register(new CheckDiagnostic<ServiceInfo>(new SpoolerCheck(systemProvider)));
-registry.Register(new CheckDiagnostic<IReadOnlyList<PrinterQueueSummary>>(new QueueCheck(systemProvider)));
-registry.Register(new CheckDiagnostic<IReadOnlyList<PrinterAssessment>>(new PrinterStateCheck(systemProvider)));
-
-return await CliApp.RunAsync(args, registry, Console.Out, Console.Error);
+return await CliApp.RunAsync(args, PrintingComposition.CreateRegistry(), Console.Out, Console.Error);

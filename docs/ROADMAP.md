@@ -24,7 +24,7 @@ Desenho aprovado em [superpowers/specs/2026-10-28-diagnostico-e-correcao-de-impr
 | D | Camada de interação (`IUserInteraction`) e CLI interativo | Pendente |
 | E | Executor elevado com UAC | Pendente |
 | F | Primeiro problema ponta a ponta | Pendente |
-| G | Interface WPF | Pendente |
+| G | Interface WPF | **Primeira versão feita**: janela de chat somente leitura (`Host.Desktop`, 196 testes). Faltam confirmações, botão de imprimir teste e elevação |
 
 Verificações disponíveis (`run <id>`): `printing.spooler`, `printing.queue`, `printing.printer-state`, `printing.default-printer`, `printing.port`, `printing.device-error`, além de `printing.device-recognition`.
 

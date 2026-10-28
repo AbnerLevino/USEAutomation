@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Contracts\AutomationPlatform.Contracts.csproj" />
     <ProjectReference Include="..\Diagnostics.Printing\AutomationPlatform.Diagnostics.Printing.csproj" />
+    <ProjectReference Include="..\Engine\AutomationPlatform.Engine.csproj" />
   </ItemGroup>
 
   <ItemGroup>
