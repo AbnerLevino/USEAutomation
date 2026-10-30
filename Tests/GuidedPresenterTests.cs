@@ -14,6 +14,7 @@ public class GuidedPresenterTests
     {
         public GuidedWorld World { get; } = new();
         public FakeGuidedScreen Screen { get; } = new();
+        public InMemoryReportSink Sink { get; } = new();
         public IActionCatalog Catalog { get; set; } = new ActionCatalog([]);
 
         public void PauseX() => World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true, extended: 8));
@@ -21,7 +22,7 @@ public class GuidedPresenterTests
         public void FixX() => World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true));
 
         public Task<DiagnosticReport> RunAsync(CancellationToken ct = default) =>
-            new GuidedPresenter(ChatPacing.Instant)
+            new GuidedPresenter(ChatPacing.Instant, Sink)
                 .RunAsync(user => new GuidedNotPrintingFlow(World.Scenario(), Catalog, new RemediationPipeline(new InMemoryAuditLog()), user), Screen, ct)
                 .WaitAsync(Limit);
     }
@@ -40,7 +41,8 @@ public class GuidedPresenterTests
         Assert.Contains("board", log);
         Assert.True(log.IndexOf("board") < log.IndexOf("physical"));
         Assert.True(log.IndexOf("physical") < log.IndexOf("resolved"));
-        Assert.Equal("conclusion:Resolvido", log[^1]);
+        Assert.Equal("conclusion:Resolvido", log.Last(l => l.StartsWith("conclusion:")));
+        Assert.Equal(["feedback", "closed"], log.Skip(log.FindIndex(l => l.StartsWith("conclusion:")) + 1));
         Assert.Equal(FlowResult.Resolved, report.Closing!.Result);
         Assert.Equal(ChatTone.Good, kit.Screen.Conclusion!.Tone);
     }
@@ -102,8 +104,111 @@ public class GuidedPresenterTests
         var report = await kit.RunAsync();
 
         Assert.False(action.Executed);
-        Assert.Equal("conclusion:Ainda não está resolvido", kit.Screen.Log[^1]);
+        Assert.Equal("conclusion:Ainda não está resolvido", kit.Screen.Log.Last(l => l.StartsWith("conclusion:")));
         Assert.Equal(FlowResult.NotResolved, report.Closing!.Result);
+    }
+
+    // ---------- o fim do atendimento ----------
+
+    [Fact]
+    public async Task Depois_da_conclusao_pede_a_avaliacao_entrega_o_relatorio_e_encerra_nessa_ordem()
+    {
+        var kit = new Kit();
+        kit.PauseX();
+        kit.Screen.Feedback = ServiceFeedback.Create(4, "  Foi rápido  ");
+
+        var report = await kit.RunAsync();
+
+        var log = kit.Screen.Log;
+        var conclusion = log.FindIndex(l => l.StartsWith("conclusion:"));
+        Assert.True(conclusion < log.IndexOf("feedback"));
+        Assert.True(log.IndexOf("feedback") < log.IndexOf("closed"));
+        Assert.Equal("closed", log[^1]);
+
+        var delivered = Assert.Single(kit.Sink.Reports);
+        Assert.Equal(4, delivered.Feedback!.Rating);
+        Assert.Equal("Foi rápido", delivered.Feedback.Comment);
+        Assert.Equal(delivered, report);
+    }
+
+    [Fact]
+    public async Task Quem_nao_avalia_nem_comenta_tem_o_relatorio_entregue_sem_avaliacao()
+    {
+        var kit = new Kit();
+        kit.PauseX();
+
+        await kit.RunAsync();
+
+        Assert.True(kit.Screen.FeedbackAsked);
+        Assert.Null(Assert.Single(kit.Sink.Reports).Feedback);
+    }
+
+    [Fact]
+    public async Task So_a_nota_ou_so_o_comentario_ja_contam_como_avaliacao()
+    {
+        var kit = new Kit();
+        kit.PauseX();
+        kit.Screen.Feedback = ServiceFeedback.Create(null, "Obrigado");
+
+        await kit.RunAsync();
+
+        var feedback = Assert.Single(kit.Sink.Reports).Feedback!;
+        Assert.Null(feedback.Rating);
+        Assert.Equal("Obrigado", feedback.Comment);
+    }
+
+    [Fact]
+    public async Task Atendimento_cancelado_nao_pede_avaliacao_mas_o_relatorio_e_entregue_e_o_atendimento_encerra()
+    {
+        var kit = new Kit();
+        kit.World.Printers(GuidedWorld.Pdf(isDefault: true), GuidedWorld.Usb("Impressora A"), GuidedWorld.Usb("Impressora B"));
+        kit.Screen.WillChoose((string?)null);
+
+        await kit.RunAsync();
+
+        Assert.False(kit.Screen.FeedbackAsked);
+        Assert.Equal(FlowResult.Cancelled, Assert.Single(kit.Sink.Reports).Closing!.Result);
+        Assert.Equal("closed", kit.Screen.Log[^1]);
+    }
+
+    [Fact]
+    public async Task Se_a_tela_falha_antes_do_fim_nada_e_entregue_como_se_o_atendimento_tivesse_terminado()
+    {
+        var kit = new Kit();
+        kit.JamX();
+        kit.Screen.FailOnPhysical = () => new InvalidOperationException("a tela quebrou");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => kit.RunAsync());
+
+        Assert.Empty(kit.Sink.Reports);
+    }
+
+    [Fact]
+    public void Avaliacao_e_normalizada_nota_fora_de_1_a_5_vira_vazia_e_comentario_e_aparado()
+    {
+        Assert.Null(ServiceFeedback.Create(0, null).Rating);
+        Assert.Null(ServiceFeedback.Create(6, null).Rating);
+        Assert.Equal(5, ServiceFeedback.Create(5, null).Rating);
+        Assert.Null(ServiceFeedback.Create(3, "   ").Comment);
+        Assert.Equal("oi", ServiceFeedback.Create(3, "  oi \n").Comment);
+        Assert.Equal(ServiceFeedback.MaxCommentLength, ServiceFeedback.Create(3, new string('a', 900)).Comment!.Length);
+        Assert.True(ServiceFeedback.Create(null, " ").IsEmpty);
+        Assert.False(ServiceFeedback.Create(1, null).IsEmpty);
+    }
+
+    [Fact]
+    public async Task Avaliacao_vai_para_o_json_do_relatorio()
+    {
+        var kit = new Kit();
+        kit.PauseX();
+        kit.Screen.Feedback = ServiceFeedback.Create(5, "Ótimo");
+
+        var json = ReportSerializer.Serialize(await kit.RunAsync());
+        var back = ReportSerializer.Deserialize(json);
+
+        Assert.Equal("1.3", back.SchemaVersion);
+        Assert.Equal(5, back.Feedback!.Rating);
+        Assert.Equal("Ótimo", back.Feedback.Comment);
     }
 
     [Fact]
@@ -116,7 +221,7 @@ public class GuidedPresenterTests
 
         Assert.DoesNotContain(kit.Screen.Log, l => l is "confirm" or "physical" or "choose" or "resolved");
         Assert.Contains(kit.Screen.Log, l => l.StartsWith("speak:Descobri o problema"));
-        Assert.Equal("conclusion:Ainda não está resolvido", kit.Screen.Log[^1]);
+        Assert.Equal("conclusion:Ainda não está resolvido", kit.Screen.Log.Last(l => l.StartsWith("conclusion:")));
         Assert.Equal(FlowResult.NotResolved, report.Closing!.Result);
     }
 
@@ -144,7 +249,7 @@ public class GuidedPresenterTests
         var report = await kit.RunAsync();
 
         Assert.Equal(FlowResult.Cancelled, report.Closing!.Result);
-        Assert.Equal("conclusion:Cancelado: nada foi alterado", kit.Screen.Log[^1]);
+        Assert.Equal("conclusion:Cancelado: nada foi alterado", kit.Screen.Log.Last(l => l.StartsWith("conclusion:")));
     }
 
     [Fact]

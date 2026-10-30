@@ -19,6 +19,12 @@ public static class AppComposition
     public static ChatPacing Pacing { get; } =
         Environment.GetEnvironmentVariable("ASSISTENTE_RITMO") == "instantaneo" ? ChatPacing.Instant : ChatPacing.Natural;
 
+    /// <summary>
+    /// Para onde vão os relatórios dos atendimentos encerrados. Por enquanto, só a memória (somem ao fechar a janela):
+    /// ainda não existe um lugar definido para o suporte receber. Trocar aqui quando existir.
+    /// </summary>
+    public static IReportSink ReportSink { get; } = new InMemoryReportSink();
+
     public static DiagnosticRegistry CreateRegistry() =>
         DemoName is null
             ? PrintingComposition.CreateRegistry()

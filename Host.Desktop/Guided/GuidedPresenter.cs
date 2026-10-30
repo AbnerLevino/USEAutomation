@@ -10,7 +10,7 @@ namespace AutomationPlatform.Host.Desktop.Guided;
 /// (eventos e perguntas) numa fila só, mostrando cada coisa pelo <see cref="IGuidedScreen"/> no ritmo da conversa.
 /// No fim mostra a conclusão. Se a tela falhar ou for cancelada, o fluxo é cancelado junto.
 /// </summary>
-public sealed class GuidedPresenter(ChatPacing pacing)
+public sealed class GuidedPresenter(ChatPacing pacing, IReportSink sink)
 {
     public async Task<DiagnosticReport> RunAsync(
         Func<IUserInteraction, GuidedNotPrintingFlow> createFlow, IGuidedScreen screen, CancellationToken cancellationToken)
@@ -33,7 +33,7 @@ public sealed class GuidedPresenter(ChatPacing pacing)
 
             var report = await running;
             await screen.ShowConclusionAsync(ReportToChat.GuidedConclusion(report), linked.Token);
-            return report;
+            return await EndServiceAsync(report, screen, linked.Token);
         }
         catch
         {
@@ -42,6 +42,24 @@ public sealed class GuidedPresenter(ChatPacing pacing)
             try { await running; } catch { /* o erro que importa é o da tela */ }
             throw;
         }
+    }
+
+    /// <summary>
+    /// O fim do atendimento: pede a avaliação (a não ser que o usuário tenha cancelado ou a execução tenha falhado,
+    /// casos em que não há o que avaliar), entrega o relatório ao destino e mostra que terminou.
+    /// </summary>
+    private async Task<DiagnosticReport> EndServiceAsync(DiagnosticReport report, IGuidedScreen screen, CancellationToken ct)
+    {
+        var worthRating = report.ExecutionStatus == ExecutionStatus.Completed && report.Closing is { Result: not FlowResult.Cancelled };
+        if (worthRating)
+        {
+            var feedback = await screen.CollectFeedbackAsync(ct);
+            if (!feedback.IsEmpty) report = report with { Feedback = feedback };
+        }
+
+        await sink.SubmitAsync(report, ct);
+        await screen.ShowClosedAsync(ct);
+        return report;
     }
 
     private async Task ShowAsync(ScreenItem item, GuidedBoard board, IGuidedScreen screen, CancellationToken ct)

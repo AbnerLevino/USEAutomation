@@ -24,7 +24,7 @@ Desenho aprovado em [superpowers/specs/2026-10-28-diagnostico-e-correcao-de-impr
 | D | Camada de interação (`IUserInteraction`) e fluxo guiado "Impressora não imprime" **na janela** (o CLI interativo foi dispensado; o CLI atual segue só para diagnóstico e `--json`) | **Feita** (308 testes; eventos estruturados, fluxo com escolha de impressora, orientação com reverificação e fechamento humano, relatório 1.2; validada na janela real com uma fila pausada de teste). Sem correção real cadastrada ainda: o "Sim, pode fazer" só aparece com a fase F |
 | E | Executor elevado com UAC | Pendente |
 | F | Primeiro problema ponta a ponta | Pendente |
-| G | Interface WPF | **Em andamento**: botão único "Impressora não imprime", quadro ao vivo de impressoras e etapas, perguntas como botões (feitos na D). Faltam ícones de impressora fiéis ao Painel de Controle, botão de imprimir teste e aviso/elevação do UAC |
+| G | Interface WPF | **Em andamento**: botão único "Impressora não imprime", quadro fixo de impressoras e etapas, perguntas como botões, página de teste e tela de avaliação do atendimento (nota, comentário, encerramento). O relatório fica só em memória (`IReportSink`): falta definir o destino. Faltam ícones fiéis ao Painel de Controle e o aviso do UAC |
 
 Verificações disponíveis (`run <id>`): `printing.spooler`, `printing.queue`, `printing.printer-state`, `printing.default-printer`, `printing.port`, `printing.device-error`, além de `printing.device-recognition`.
 

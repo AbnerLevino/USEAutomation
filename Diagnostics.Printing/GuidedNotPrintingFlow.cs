@@ -40,12 +40,12 @@ public sealed class GuidedNotPrintingFlow(
         public static ClosingTexts Printing { get; } = new(
             "A impressão voltou a funcionar?",
             "Você confirmou que a impressão voltou a funcionar.",
-            "Você informou que a impressão continua sem funcionar. Envie este relatório ao suporte.");
+            "Você informou que a impressão continua sem funcionar. Procure o suporte.");
 
         public static ClosingTexts TestPage { get; } = new(
             "A página de teste saiu na impressora?",
             "Você confirmou que a página de teste saiu.",
-            "Você informou que a página de teste não saiu. Envie este relatório ao suporte.");
+            "Você informou que a página de teste não saiu. Procure o suporte.");
     }
 
     public async Task<DiagnosticReport> RunAsync(IProgress<GuidedEvent> events, CancellationToken cancellationToken = default)
@@ -101,7 +101,7 @@ public sealed class GuidedNotPrintingFlow(
         // 2. Sem causa: o motor não finge que está tudo bem. A página de teste deixa o usuário conferir com os próprios olhos.
         if (analysis.Primary is not { } primary)
         {
-            const string message = "Não encontrei nenhuma causa nas verificações que fiz. Isso não prova que a impressão funciona: envie este relatório ao suporte.";
+            const string message = "Não encontrei nenhuma causa nas verificações que fiz. Isso não prova que a impressão funciona: se o problema continuar, procure o suporte.";
             events.Report(new NoCauseFound(message));
             var closingNoCause = await OfferTestPageAsync(
                 SoleTarget(snapshot, analysis, scope), FlowResult.Inconclusive, "nenhuma causa foi encontrada.", actions, events, ct)
@@ -224,8 +224,8 @@ public sealed class GuidedNotPrintingFlow(
     private static FlowClosing HandOffToSupport(ProbableCause cause, IProgress<GuidedEvent> events)
     {
         var message = cause.CandidateActionId is not null
-            ? $"Descobri o problema: {cause.Title}. Eu sei como corrigir, mas essa correção ainda não está disponível nesta versão. Deixei o relatório pronto para o suporte."
-            : $"Descobri o problema: {cause.Title}. Ele precisa de um técnico. Deixei o relatório pronto para o suporte.";
+            ? $"Descobri o problema: {cause.Title}. Eu sei como corrigir, mas essa correção ainda não está disponível nesta versão. Procure o suporte; os detalhes ficam registrados no relatório."
+            : $"Descobri o problema: {cause.Title}. Ele precisa de um técnico. Procure o suporte; os detalhes ficam registrados no relatório.";
         Say(events, message);
         return new FlowClosing(FlowResult.NotResolved, ClosingBasis.None, message);
     }

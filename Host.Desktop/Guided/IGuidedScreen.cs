@@ -20,4 +20,10 @@ public interface IGuidedScreen
     Task<ResolutionAnswer> AskResolvedAsync(string question, CancellationToken cancellationToken);
 
     Task ShowConclusionAsync(ChatMessage conclusion, CancellationToken cancellationToken);
+
+    /// <summary>Pede a avaliação e o comentário do usuário. Tudo é opcional: devolve o que ele preencheu (pode vir vazio).</summary>
+    Task<ServiceFeedback> CollectFeedbackAsync(CancellationToken cancellationToken);
+
+    /// <summary>Mostra que o atendimento terminou e deixa a tela pronta para um novo.</summary>
+    Task ShowClosedAsync(CancellationToken cancellationToken);
 }

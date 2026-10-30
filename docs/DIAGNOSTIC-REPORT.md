@@ -1,6 +1,6 @@
 # Formato do relatório
 
-JSON em camelCase, enums como texto, versão do esquema em `schemaVersion` (atual: **1.2**). A versão muda quando o formato muda de forma incompatível; a 1.1 acrescentou `actions` (correções tentadas, com status, confirmação e verificação posterior) e a 1.2 acrescentou `closing` (como o fluxo guiado terminou e em que se baseia: resposta do usuário ou leitura objetiva), então relatórios anteriores continuam válidos.
+JSON em camelCase, enums como texto, versão do esquema em `schemaVersion` (atual: **1.3**). A versão muda quando o formato muda de forma incompatível; a 1.1 acrescentou `actions` (correções tentadas, com status, confirmação e verificação posterior) e a 1.2 acrescentou `closing` (como o fluxo guiado terminou e em que se baseia: resposta do usuário ou leitura objetiva) e a 1.3 acrescentou `feedback` (nota de 1 a 5 e comentário do usuário ao encerrar), então relatórios anteriores continuam válidos.
 
 ## Campos
 

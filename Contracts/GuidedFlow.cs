@@ -87,3 +87,33 @@ public interface IActionCatalog
 {
     IRemediationAction? Find(string actionId);
 }
+
+/// <summary>
+/// O que o usuário diz ao fim do atendimento. Tudo opcional: quem não avalia nem comenta fica com campos nulos.
+/// Use <see cref="Create"/> para normalizar o que vem da tela.
+/// </summary>
+/// <param name="Rating">Nota de 1 a 5; null = não avaliou.</param>
+/// <param name="Comment">Comentário livre, sem espaços nas pontas e com no máximo <see cref="MaxCommentLength"/> letras; null = não comentou.</param>
+public sealed record ServiceFeedback(int? Rating, string? Comment)
+{
+    public const int MaxCommentLength = 500;
+
+    public static ServiceFeedback Create(int? rating, string? comment)
+    {
+        var text = comment?.Trim();
+        if (string.IsNullOrEmpty(text)) text = null;
+        else if (text.Length > MaxCommentLength) text = text[..MaxCommentLength];
+        return new ServiceFeedback(rating is >= 1 and <= 5 ? rating : null, text);
+    }
+
+    public bool IsEmpty => Rating is null && Comment is null;
+}
+
+/// <summary>
+/// Para onde vai o relatório quando o atendimento termina. Hoje é só memória; depois pode ser uma pasta de
+/// rede, e-mail ou o USE (por mecanismo oficial), sem mudar quem produz o relatório.
+/// </summary>
+public interface IReportSink
+{
+    Task SubmitAsync(DiagnosticReport report, CancellationToken cancellationToken);
+}

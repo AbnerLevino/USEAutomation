@@ -10,3 +10,20 @@ public sealed class ActionCatalog(IEnumerable<IRemediationAction> actions) : IAc
 
     public IRemediationAction? Find(string actionId) => _byId.GetValueOrDefault(actionId);
 }
+
+/// <summary>
+/// Guarda os relatórios dos atendimentos encerrados SÓ em memória (somem quando o programa fecha). É o destino
+/// provisório, até existir um lugar definido para o suporte receber os relatórios.
+/// </summary>
+public sealed class InMemoryReportSink : IReportSink
+{
+    private readonly List<DiagnosticReport> _reports = [];
+
+    public IReadOnlyList<DiagnosticReport> Reports => _reports;
+
+    public Task SubmitAsync(DiagnosticReport report, CancellationToken cancellationToken)
+    {
+        lock (_reports) _reports.Add(report);
+        return Task.CompletedTask;
+    }
+}

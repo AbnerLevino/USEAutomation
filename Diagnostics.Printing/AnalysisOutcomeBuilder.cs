@@ -51,7 +51,7 @@ internal static class AnalysisOutcomeBuilder
         if (primary is null)
             recommendations.Add(new Recommendation
             {
-                Text = "Nenhuma causa foi achada nas verificações feitas. Se o problema continua, imprima uma página de teste e envie este relatório ao suporte; se a impressora é de rede, o alcance da rede ainda não é verificado."
+                Text = "Nenhuma causa foi achada nas verificações feitas. Se o problema continua, imprima uma página de teste e procure o suporte; se a impressora é de rede, o alcance da rede ainda não é verificado."
             });
 
         var notEvaluable = parts.Count(p => p.Verdict == CheckVerdict.NotEvaluable);

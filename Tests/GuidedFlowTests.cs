@@ -141,7 +141,7 @@ public class GuidedFlowTests
         Assert.Equal(FlowResult.NotResolved, report.Closing!.Result);
         Assert.Equal(ClosingBasis.None, report.Closing.Basis);
         Assert.Contains("Eu sei como corrigir", report.Closing.Message);
-        Assert.Contains("relatório pronto para o suporte", report.Closing.Message);
+        Assert.Contains("Procure o suporte", report.Closing.Message);
     }
 
     [Fact]
@@ -177,7 +177,7 @@ public class GuidedFlowTests
 
         var report = await kit.RunAsync();
 
-        Assert.Contains(kit.Events.Of<Narration>(), n => n.Message.Contains("Deixei o relatório pronto para o suporte"));
+        Assert.Contains(kit.Events.Of<Narration>(), n => n.Message.Contains("Procure o suporte"));
         Assert.Contains(report.Findings, f => f.Title.Contains("pausada"));
     }
 
@@ -419,7 +419,7 @@ public class GuidedFlowTests
         var report = await kit.RunAsync();
         var json = ReportSerializer.Serialize(report);
 
-        Assert.Equal("1.2", report.SchemaVersion);
+        Assert.Equal("1.3", report.SchemaVersion);
         Assert.Contains("\"closing\"", json);
         Assert.Contains("\"basis\": \"UserAnswer\"", json);
         Assert.Contains("Conclusão:", report.Summary);

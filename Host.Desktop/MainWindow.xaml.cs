@@ -44,7 +44,7 @@ public partial class MainWindow : Window
         try
         {
             await _view.WaitAsync(_view.Pacing.AfterUserMessage);
-            await new GuidedPresenter(_view.Pacing).RunAsync(AppComposition.CreateGuidedFlow, new WpfGuidedScreen(_view, BoardHost), _closing.Token);
+            await new GuidedPresenter(_view.Pacing, AppComposition.ReportSink).RunAsync(AppComposition.CreateGuidedFlow, new WpfGuidedScreen(_view, BoardHost), _closing.Token);
         }
         catch (OperationCanceledException) { /* a janela foi fechada pelo usuário */ }
         finally { NotPrintingButton.IsEnabled = true; }

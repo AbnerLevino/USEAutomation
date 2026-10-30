@@ -69,6 +69,10 @@ public sealed class WpfGuidedScreen(ChatView view, Border boardHost) : IGuidedSc
             new ChatButton<ResolutionAnswer>(GuidedSpeech.CannotTest, ResolutionAnswer.CannotTest)
         ]);
 
+    public Task<ServiceFeedback> CollectFeedbackAsync(CancellationToken cancellationToken) => view.AskFeedbackAsync();
+
+    public Task ShowClosedAsync(CancellationToken cancellationToken) => SpeakAsync(GuidedSpeech.Closed, cancellationToken);
+
     public async Task ShowConclusionAsync(ChatMessage conclusion, CancellationToken cancellationToken)
     {
         await view.WaitAsync(view.Pacing.Reading(_previousSpeech));

@@ -35,4 +35,11 @@ public static class GuidedSpeech
     public const string Worked = "Sim";
     public const string StillBroken = "Não";
     public const string CannotTest = "Não consegui verificar";
+
+    // Enquanto o relatório não for enviado a lugar nenhum, o texto não pode dizer que foi: só diz o que é verdade.
+    public const string FeedbackTitle = "Como foi o atendimento?";
+    public const string FeedbackInfo = "Sua avaliação e o resultado deste atendimento ficam registrados no relatório.";
+    public const string FeedbackComment = "Comentário (opcional)";
+    public const string Finish = "Concluir atendimento";
+    public const string Closed = "Atendimento encerrado. Obrigado!";
 }

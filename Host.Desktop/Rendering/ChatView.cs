@@ -1,18 +1,20 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using AutomationPlatform.Contracts;
 using AutomationPlatform.Host.Desktop.Chat;
+using AutomationPlatform.Host.Desktop.Guided;
 
 namespace AutomationPlatform.Host.Desktop.Rendering;
+
+/// <summary>Um botão de resposta numa pergunta da conversa.</summary>
+public sealed record ChatButton<T>(string Label, T Value, bool Primary = false);
 
 /// <summary>
 /// Desenha a conversa: bolhas, pontinhos de "digitando", cartões e o texto surgindo palavra por palavra.
 /// Só desenha; não conhece diagnóstico, fluxo nem regra de negócio. Todas as esperas respeitam o
 /// <c>closing</c>, para a janela poder fechar a qualquer momento.
 /// </summary>
-/// <summary>Um botão de resposta numa pergunta da conversa.</summary>
-public sealed record ChatButton<T>(string Label, T Value, bool Primary = false);
-
 public sealed class ChatView(ScrollViewer scroll, Panel chat, ChatPacing pacing, CancellationToken closing)
 {
     public ChatPacing Pacing => pacing;
@@ -144,6 +146,101 @@ public sealed class ChatView(ScrollViewer scroll, Panel chat, ChatPacing pacing,
             await StreamAsync(block, line);
         }
         SmoothScroll.ToEnd(scroll);
+    }
+
+    /// <summary>
+    /// A tela de avaliação do atendimento: cinco estrelas, um comentário e "Concluir atendimento". Tudo opcional.
+    /// Depois do clique o cartão some e a escolha vira uma bolha do usuário, como nas outras perguntas.
+    /// </summary>
+    public async Task<ServiceFeedback> AskFeedbackAsync()
+    {
+        var typing = ShowTyping();
+        await WaitAsync(pacing.Thinking(GuidedSpeech.FeedbackTitle));
+        await SpeakAsync(typing, GuidedSpeech.FeedbackTitle);
+
+        var rating = 0;
+        var stars = new List<Button>();
+        var starRow = new StackPanel { Orientation = Orientation.Horizontal };
+        for (var i = 1; i <= 5; i++)
+        {
+            var value = i;
+            var star = new Button
+            {
+                Content = "☆",
+                FontSize = 28,
+                Padding = new Thickness(2, 0, 2, 0),
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Foreground = Brush("#F59E0B"),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                ToolTip = value == 1 ? "1 estrela" : $"{value} estrelas"
+            };
+            System.Windows.Automation.AutomationProperties.SetName(star, value == 1 ? "1 estrela" : $"{value} estrelas");
+            star.Click += (_, _) =>
+            {
+                rating = value;
+                for (var s = 0; s < stars.Count; s++) stars[s].Content = s < rating ? "★" : "☆";
+            };
+            stars.Add(star);
+            starRow.Children.Add(star);
+        }
+
+        var comment = new TextBox
+        {
+            MinHeight = 64,
+            MaxLength = ServiceFeedback.MaxCommentLength,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Padding = new Thickness(6),
+            Margin = new Thickness(0, 4, 0, 0)
+        };
+        System.Windows.Automation.AutomationProperties.SetAutomationId(comment, "feedback-comment");
+
+        var finish = new Button
+        {
+            Content = GuidedSpeech.Finish,
+            Padding = new Thickness(14, 8, 14, 8),
+            Margin = new Thickness(0, 12, 0, 0),
+            FontWeight = FontWeights.SemiBold,
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        System.Windows.Automation.AutomationProperties.SetAutomationId(finish, "btn-finish");
+
+        var body = new StackPanel();
+        body.Children.Add(starRow);
+        body.Children.Add(new TextBlock { Text = GuidedSpeech.FeedbackComment, Margin = new Thickness(0, 10, 0, 0), Foreground = Brush("#374151") });
+        body.Children.Add(comment);
+        body.Children.Add(new TextBlock { Text = GuidedSpeech.FeedbackInfo, FontSize = 12, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap, Foreground = Brush("#6B7280") });
+        body.Children.Add(finish);
+
+        var card = new Border
+        {
+            Background = Brush("#FFFFFF"),
+            BorderBrush = Brush("#E5E7EB"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(14, 10, 14, 12),
+            Margin = new Thickness(0, 4, 0, 12),
+            MaxWidth = 480,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Child = body
+        };
+        Append(card);
+
+        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        finish.Click += (_, _) => done.TrySetResult();
+        using var registration = closing.Register(() => done.TrySetCanceled(closing));
+        await done.Task;
+
+        var feedback = ServiceFeedback.Create(rating == 0 ? null : rating, comment.Text);
+        Remove(card);
+
+        AddBubble(fromComputer: false, out var reply);
+        reply.Text = feedback.IsEmpty
+            ? GuidedSpeech.Finish
+            : string.Join("  ", new[] { feedback.Rating is { } r ? new string('★', r) + new string('☆', 5 - r) : null, feedback.Comment }.Where(t => t is not null));
+        return feedback;
     }
 
     /// <summary>Tudo o que já está na conversa fica mais apagado quando uma fala nova chega.</summary>

@@ -22,6 +22,10 @@ internal sealed class FakeGuidedScreen : IGuidedScreen
 
     /// <summary>Roda quando o usuário "faz" o que foi pedido (conserta o computador falso).</summary>
     public Action? OnPhysicalDone { get; set; }
+
+    /// <summary>O que o usuário preenche na avaliação. Vazio por padrão (não avaliou).</summary>
+    public ServiceFeedback Feedback { get; set; } = ServiceFeedback.Create(null, null);
+    public bool FeedbackAsked { get; private set; }
     /// <summary>Faz a tela falhar em um tipo de pergunta, para provar que o fluxo não fica esperando.</summary>
     public Func<Exception?>? FailOnPhysical { get; set; }
 
@@ -68,6 +72,19 @@ internal sealed class FakeGuidedScreen : IGuidedScreen
     {
         Log.Add("resolved");
         return Task.FromResult(Next(_resolved, "fechamento"));
+    }
+
+    public Task<ServiceFeedback> CollectFeedbackAsync(CancellationToken cancellationToken)
+    {
+        FeedbackAsked = true;
+        Log.Add("feedback");
+        return Task.FromResult(Feedback);
+    }
+
+    public Task ShowClosedAsync(CancellationToken cancellationToken)
+    {
+        Log.Add("closed");
+        return Task.CompletedTask;
     }
 
     public Task ShowConclusionAsync(ChatMessage conclusion, CancellationToken cancellationToken)
