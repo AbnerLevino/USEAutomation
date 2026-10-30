@@ -1,3 +1,5 @@
+using System.Windows;
+using System.Windows.Controls;
 using AutomationPlatform.Contracts;
 using AutomationPlatform.Host.Desktop.Chat;
 using AutomationPlatform.Host.Desktop.Guided;
@@ -8,7 +10,7 @@ namespace AutomationPlatform.Host.Desktop.Rendering;
 /// A tela real do fluxo guiado: traduz cada pedido do apresentador em bolhas, quadro e botões do
 /// <see cref="ChatView"/>. Só desenha; as regras ficam em <see cref="GuidedPresenter"/>.
 /// </summary>
-public sealed class WpfGuidedScreen(ChatView view) : IGuidedScreen
+public sealed class WpfGuidedScreen(ChatView view, Border boardHost) : IGuidedScreen
 {
     private BoardView? _board;
     private string? _previousSpeech;
@@ -27,10 +29,12 @@ public sealed class WpfGuidedScreen(ChatView view) : IGuidedScreen
 
     public void ShowBoard(GuidedBoard board)
     {
+        // O quadro mora num lugar fixo da janela (embaixo); o log da conversa é que rola.
         if (_board is null)
         {
             _board = new BoardView();
-            view.Add(_board.Root);
+            boardHost.Child = _board.Root;
+            boardHost.Visibility = Visibility.Visible;
         }
         _board.Update(board);
     }

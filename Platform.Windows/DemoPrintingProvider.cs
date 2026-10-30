@@ -5,9 +5,9 @@ namespace AutomationPlatform.Platform.Windows;
 
 /// <summary>
 /// Dados FALSOS de impressão, só para ver a janela reagir a cada problema sem mexer no Windows.
-/// Nada aqui lê ou altera o computador. Quem usa tem de deixar claro na tela que é demonstração.
+/// Nada aqui lê ou altera o computador: até as "correções" só mudam estes dados falsos. Quem usa tem de deixar claro na tela que é demonstração.
 /// </summary>
-public sealed class DemoPrintingProvider : IPrintSystemProvider, IPrintDeviceProvider
+public sealed class DemoPrintingProvider : IPrintSystemProvider, IPrintDeviceProvider, IPrinterControl
 {
     private const string Usb = "HP LaserJet (demo)";
     private const string Pdf = "Microsoft Print to PDF";
@@ -97,6 +97,19 @@ public sealed class DemoPrintingProvider : IPrintSystemProvider, IPrintDevicePro
 
     private void SetDefault(string name) =>
         _states = _states.Select(s => s with { IsDefault = s.Name == name }).ToList();
+
+    /// <summary>"Retoma" a fila nos dados falsos (muda o estado de pausada para ociosa). Não toca no Windows.</summary>
+    public Task<ControlResult> ResumeAsync(string printerName, CancellationToken cancellationToken)
+    {
+        var found = false;
+        _states = _states.Select(s =>
+        {
+            if (!string.Equals(s.Name, printerName, StringComparison.OrdinalIgnoreCase)) return s;
+            found = true;
+            return s.ExtendedStatus == 8 ? s with { ExtendedStatus = 3 } : s;
+        }).ToList();
+        return Task.FromResult(found ? new ControlResult(true) : new ControlResult(false, $"não encontrei a impressora '{printerName}'."));
+    }
 
     // Cada consulta devolve o cenário; em "sem-acesso" todas falham do mesmo jeito, como numa negação real.
     private SourceResult<T> Answer<T>(IReadOnlyList<T> items) =>

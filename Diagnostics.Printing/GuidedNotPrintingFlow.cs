@@ -83,11 +83,16 @@ public sealed class GuidedNotPrintingFlow(
 
         events.Report(new CauseFound(primary.Code, primary.Title, primary.Description, primary.Guidance, primary.PrinterName, primary.CandidateActionId));
 
-        // 3. Com correção conhecida: pipeline (confirma, executa, verifica). Sem ela: orientação e reverificação.
+        // 3. Quem age é a automação, não o usuário:
+        //    - correção disponível: pipeline (confirma, executa, verifica);
+        //    - só uma pessoa diante do equipamento resolve (papel atolado, tampa aberta): pede e reverifica;
+        //    - o resto é técnico: assume o problema e entrega o relatório ao suporte.
         var action = primary.CandidateActionId is { } id ? catalog.Find(id) : null;
         var closing = action is not null
             ? await FixAsync(action, primary, actions, events, ct)
-            : await GuideAsync(primary, chosen, events, ct);
+            : NeedsPersonAtEquipment(primary)
+                ? await GuideAsync(primary, chosen, events, ct)
+                : HandOffToSupport(primary, events);
 
         return Finish(started, actions, analysis, snapshot, closing, events);
     }
@@ -122,7 +127,27 @@ public sealed class GuidedNotPrintingFlow(
         return await CloseWithUserAsync(objective, record.Summary, ct);
     }
 
-    // ---------- caminho da orientação ----------
+    // ---------- caminho do suporte ----------
+
+    /// <summary>
+    /// Só uma pessoa diante do equipamento resolve: erro que o próprio equipamento reporta (papel, tampa...)
+    /// e que a automação não tem como corrigir. Qualquer causa com correção conhecida ou técnica NÃO entra aqui:
+    /// o usuário não deve receber tarefa técnica.
+    /// </summary>
+    private static bool NeedsPersonAtEquipment(ProbableCause cause) =>
+        cause.CandidateActionId is null && cause.Code == CauseCodes.EquipmentError;
+
+    /// <summary>A automação descobriu o problema mas não corrige sozinha: assume e deixa o relatório para o suporte.</summary>
+    private static FlowClosing HandOffToSupport(ProbableCause cause, IProgress<GuidedEvent> events)
+    {
+        var message = cause.CandidateActionId is not null
+            ? $"Descobri o problema: {cause.Title}. Eu sei como corrigir, mas essa correção ainda não está disponível nesta versão. Deixei o relatório pronto para o suporte."
+            : $"Descobri o problema: {cause.Title}. Ele precisa de um técnico. Deixei o relatório pronto para o suporte.";
+        Say(events, message);
+        return new FlowClosing(FlowResult.NotResolved, ClosingBasis.None, message);
+    }
+
+    // ---------- caminho da orientação (só equipamento) ----------
 
     private async Task<FlowClosing> GuideAsync(ProbableCause cause, string? chosen, IProgress<GuidedEvent> events, CancellationToken ct)
     {

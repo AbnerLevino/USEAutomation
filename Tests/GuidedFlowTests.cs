@@ -25,6 +25,7 @@ public class GuidedFlowTests
 
         public static string ResumeId => PrinterActionIds.ResumePrinter;
         public void PauseX() => World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true, extended: 8));
+        public void JamX() => World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true, error: 8));
         public void FixX() => World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true));
     }
 
@@ -124,13 +125,82 @@ public class GuidedFlowTests
         Assert.Empty(kit.User.Confirmed);
     }
 
-    // ---------- orientação (sem ação ligada) ----------
+    // ---------- o que a automação não corrige sozinha vai para o suporte, não para o usuário ----------
+
+    [Fact]
+    public async Task Correcao_conhecida_mas_indisponivel_nao_manda_o_usuario_fazer_nada_e_vai_para_o_suporte()
+    {
+        var kit = new Kit();
+        kit.PauseX();   // causa com correção conhecida (retomar), mas o catálogo está vazio
+
+        var report = await kit.RunAsync();
+
+        Assert.Empty(kit.User.PhysicalRequests);
+        Assert.Empty(kit.User.Confirmed);
+        Assert.Empty(kit.User.Questions);
+        Assert.Equal(FlowResult.NotResolved, report.Closing!.Result);
+        Assert.Equal(ClosingBasis.None, report.Closing.Basis);
+        Assert.Contains("Eu sei como corrigir", report.Closing.Message);
+        Assert.Contains("relatório pronto para o suporte", report.Closing.Message);
+    }
+
+    [Fact]
+    public async Task Fila_sem_porta_e_tecnica_vai_para_o_suporte_sem_tarefa_para_o_usuario()
+    {
+        var kit = new Kit();
+        kit.World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true, port: null));
+
+        var report = await kit.RunAsync();
+
+        Assert.Empty(kit.User.PhysicalRequests);
+        Assert.Equal(CauseCodes.PrinterNoPort, kit.Events.Of<CauseFound>().Single().Code);
+        Assert.Contains("precisa de um técnico", report.Closing!.Message);
+    }
+
+    [Fact]
+    public async Task Erro_de_dispositivo_do_windows_e_tecnico_e_vai_para_o_suporte()
+    {
+        var kit = new Kit();
+        kit.World.Dev.Devices = SourceResult<PrintDeviceInfo>.Ok([new PrintDeviceInfo("Impressora X", @"USB\VID_1", 28)]);
+
+        var report = await kit.RunAsync();
+
+        Assert.Empty(kit.User.PhysicalRequests);
+        Assert.Contains("precisa de um técnico", report.Closing!.Message);
+    }
+
+    [Fact]
+    public async Task A_entrega_ao_suporte_e_falada_na_conversa_e_o_relatorio_fica_com_a_causa()
+    {
+        var kit = new Kit();
+        kit.PauseX();
+
+        var report = await kit.RunAsync();
+
+        Assert.Contains(kit.Events.Of<Narration>(), n => n.Message.Contains("Deixei o relatório pronto para o suporte"));
+        Assert.Contains(report.Findings, f => f.Title.Contains("pausada"));
+    }
+
+    [Fact]
+    public async Task Erro_de_equipamento_continua_pedindo_a_pessoa_diante_da_impressora()
+    {
+        var kit = new Kit();
+        kit.JamX();
+        kit.User.WillDoPhysical(PhysicalActionReply.Skipped);
+
+        await kit.RunAsync();
+
+        Assert.Single(kit.User.PhysicalRequests);
+        Assert.Contains("papel atolado", kit.User.PhysicalRequests[0]);
+    }
+
+    // ---------- orientação (só quando é preciso uma pessoa no equipamento) ----------
 
     [Fact]
     public async Task Causa_sem_acao_so_orienta_nao_pede_confirmacao_e_reverifica_depois_do_usuario_agir()
     {
         var kit = new Kit();
-        kit.PauseX();
+        kit.JamX();
         kit.User.OnPhysicalAction = kit.FixX;
         kit.User.WillDoPhysical(PhysicalActionReply.Done).WillAnswerResolved(ResolutionAnswer.Worked);
 
@@ -139,7 +209,7 @@ public class GuidedFlowTests
         Assert.Empty(kit.User.Confirmed);
         Assert.Empty(report.Actions);
         Assert.Single(kit.User.PhysicalRequests);
-        Assert.Contains("retomar", kit.User.PhysicalRequests[0], StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("papel atolado", kit.User.PhysicalRequests[0], StringComparison.OrdinalIgnoreCase);
         Assert.Equal(FlowResult.Resolved, report.Closing!.Result);
         Assert.Equal(ClosingBasis.UserAnswer, report.Closing.Basis);
         // Reverificou de verdade: as seis etapas rodaram duas vezes.
@@ -150,7 +220,7 @@ public class GuidedFlowTests
     public async Task Depois_da_reverificacao_os_cartoes_ganham_o_estado_atual_e_nao_voltam_ao_inicial()
     {
         var kit = new Kit();
-        kit.World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true, extended: 8), GuidedWorld.Usb("Impressora Y"));
+        kit.World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true, error: 8), GuidedWorld.Usb("Impressora Y"));
         kit.User.OnPhysicalAction = () => kit.World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true), GuidedWorld.Usb("Impressora Y"));
         kit.User.WillDoPhysical(PhysicalActionReply.Done).WillAnswerResolved(ResolutionAnswer.Worked);
 
@@ -168,7 +238,7 @@ public class GuidedFlowTests
     public async Task Se_o_usuario_diz_que_fez_mas_o_problema_continua_o_programa_nao_acredita_e_pede_de_novo()
     {
         var kit = new Kit();
-        kit.PauseX();
+        kit.JamX();
         kit.User.WillDoPhysical(PhysicalActionReply.Done, PhysicalActionReply.Skipped);
 
         var report = await kit.RunAsync();
@@ -182,7 +252,7 @@ public class GuidedFlowTests
     public async Task Usuario_que_nao_pode_testar_depois_de_agir_fecha_pela_leitura_objetiva()
     {
         var kit = new Kit();
-        kit.PauseX();
+        kit.JamX();
         kit.User.OnPhysicalAction = kit.FixX;
         kit.User.WillDoPhysical(PhysicalActionReply.Done).WillAnswerResolved(ResolutionAnswer.CannotTest);
 
@@ -196,7 +266,7 @@ public class GuidedFlowTests
     public async Task Problema_anterior_some_mas_outro_aparece_nao_e_dado_como_resolvido()
     {
         var kit = new Kit();
-        kit.PauseX();
+        kit.JamX();
         kit.User.OnPhysicalAction = () => kit.World.SpoolerIs(ServiceState.Stopped);
         kit.User.WillDoPhysical(PhysicalActionReply.Done);
 
@@ -210,7 +280,7 @@ public class GuidedFlowTests
     public async Task Cancelar_o_pedido_fisico_encerra_sem_alterar_nada()
     {
         var kit = new Kit();
-        kit.PauseX();
+        kit.JamX();
         kit.User.WillDoPhysical(PhysicalActionReply.Cancel);
 
         var report = await kit.RunAsync();
@@ -230,7 +300,7 @@ public class GuidedFlowTests
     {
         var kit = new Kit();
         TwoPhysical(kit);
-        kit.User.WillChoose("Impressora B").WillDoPhysical(PhysicalActionReply.Skipped);
+        kit.User.WillChoose("Impressora B");
 
         await kit.RunAsync();
 
@@ -245,7 +315,7 @@ public class GuidedFlowTests
     {
         var kit = new Kit();
         TwoPhysical(kit);
-        kit.User.WillChoose("Impressora A").WillDoPhysical(PhysicalActionReply.Skipped);
+        kit.User.WillChoose("Impressora A");
 
         var report = await kit.RunAsync();
 
@@ -298,7 +368,6 @@ public class GuidedFlowTests
     {
         var kit = new Kit();
         kit.World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true, extended: 8), GuidedWorld.Pdf());
-        kit.User.WillDoPhysical(PhysicalActionReply.Skipped);
 
         await kit.RunAsync();
 
@@ -313,7 +382,6 @@ public class GuidedFlowTests
     {
         var kit = new Kit();
         kit.World.SpoolerIs(ServiceState.Stopped);
-        kit.User.WillDoPhysical(PhysicalActionReply.Skipped);
 
         await kit.RunAsync();
 

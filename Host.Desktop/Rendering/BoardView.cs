@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using AutomationPlatform.Contracts;
 using AutomationPlatform.Host.Desktop.Guided;
@@ -8,8 +9,9 @@ namespace AutomationPlatform.Host.Desktop.Rendering;
 
 /// <summary>
 /// Desenha o quadro ao vivo: as impressoras como cartões e a lista das etapas da investigação.
-/// Só desenha o que o <see cref="GuidedBoard"/> diz; não decide nada. A raiz é um Grid (e não um Border)
-/// para o esmaecimento das falas antigas não apagar o quadro, que precisa continuar legível.
+/// Só desenha o que o <see cref="GuidedBoard"/> diz; não decide nada. Fica fixo na parte de baixo da
+/// janela (quem o hospeda é a janela), enquanto o log da conversa rola em cima. Compacto: cartões lado
+/// a lado e etapas em duas colunas, para sobrar espaço ao log.
 /// </summary>
 public sealed class BoardView
 {
@@ -17,8 +19,8 @@ public sealed class BoardView
     private const string PrinterGlyph = "";
     private const string VirtualGlyph = "";
 
-    private readonly StackPanel _printers = new();
-    private readonly StackPanel _steps = new() { Margin = new Thickness(0, 10, 0, 0) };
+    private readonly WrapPanel _printers = new();
+    private readonly UniformGrid _steps = new() { Columns = 2, Margin = new Thickness(0, 8, 0, 0) };
 
     public BoardView()
     {
@@ -27,24 +29,7 @@ public sealed class BoardView
         body.Children.Add(_printers);
         body.Children.Add(_steps);
 
-        Root = new Grid
-        {
-            Margin = new Thickness(0, 4, 0, 12),
-            MaxWidth = 480,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            Children =
-            {
-                new Border
-                {
-                    Background = ChatView.Brush("#FFFFFF"),
-                    BorderBrush = ChatView.Brush("#E5E7EB"),
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(8),
-                    Padding = new Thickness(14, 10, 14, 12),
-                    Child = body
-                }
-            }
-        };
+        Root = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = body };
     }
 
     public FrameworkElement Root { get; }
@@ -74,19 +59,21 @@ public sealed class BoardView
         var text = new StackPanel { Margin = new Thickness(10, 0, 0, 0) };
         text.Children.Add(new TextBlock
         {
-            Text = tags.Count == 0 ? printer.Name : $"{printer.Name}  ·  {string.Join(", ", tags)}",
+            Text = printer.Name,
             FontWeight = FontWeights.SemiBold,
             TextWrapping = TextWrapping.Wrap,
             Foreground = ChatView.Brush("#111827")
         });
-        text.Children.Add(new TextBlock { Text = printer.StateText, Foreground = ChatView.Brush(color), FontSize = 12 });
+        if (tags.Count > 0)
+            text.Children.Add(new TextBlock { Text = string.Join(", ", tags), FontSize = 11, Foreground = ChatView.Brush("#6B7280") });
+        text.Children.Add(new TextBlock { Text = printer.StateText, Foreground = ChatView.Brush(color), FontSize = 12, TextWrapping = TextWrapping.Wrap });
 
         var row = new DockPanel();
         row.Children.Add(new TextBlock
         {
             Text = printer.IsVirtual ? VirtualGlyph : PrinterGlyph,
             FontFamily = new FontFamily("Segoe MDL2 Assets"),
-            FontSize = 26,
+            FontSize = 24,
             Foreground = ChatView.Brush(color),
             VerticalAlignment = VerticalAlignment.Center
         });
@@ -98,8 +85,9 @@ public sealed class BoardView
             BorderThickness = new Thickness(3, 0, 0, 0),
             Background = ChatView.Brush("#F9FAFB"),
             CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(10, 8, 10, 8),
-            Margin = new Thickness(0, 8, 0, 0),
+            Padding = new Thickness(10, 6, 10, 6),
+            Margin = new Thickness(0, 8, 8, 0),
+            Width = 232,
             Child = row
         };
     }
@@ -114,11 +102,11 @@ public sealed class BoardView
             _ => ("•", "#9CA3AF")
         };
 
-        var line = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 3, 0, 0), FontSize = 13 };
+        var line = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 8, 0), FontSize = 13 };
         line.Inlines.Add(new System.Windows.Documents.Run(mark + "  ") { Foreground = ChatView.Brush(color), FontWeight = FontWeights.Bold });
         line.Inlines.Add(new System.Windows.Documents.Run(step.Label) { Foreground = ChatView.Brush("#111827") });
         if (step.Status == StepStatus.Running)
-            line.Inlines.Add(new System.Windows.Documents.Run("  verificando…") { Foreground = ChatView.Brush("#9CA3AF") });
+            line.Inlines.Add(new System.Windows.Documents.Run("  …") { Foreground = ChatView.Brush("#9CA3AF") });
         return line;
     }
 }

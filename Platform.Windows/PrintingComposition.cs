@@ -17,13 +17,22 @@ public static class PrintingComposition
     public static DiagnosticRegistry? CreateDemoRegistry(string scenario) =>
         DemoPrintingProvider.Create(scenario) is { } demo ? CreateRegistry(demo, demo) : null;
 
-    /// <summary>O cenário "Impressora não imprime" sobre o Windows de verdade, para o fluxo guiado.</summary>
-    public static NotPrintingScenario CreateNotPrintingScenario() =>
-        NotPrintingScenario.Create(new WmiPrintSystemProvider(), new WmiPrintDeviceProvider());
+    /// <summary>
+    /// O que o fluxo guiado usa: o cenário "Impressora não imprime" e as correções que a automação sabe fazer.
+    /// Os dois leem da MESMA fonte, senão a verificação posterior de uma correção não enxergaria o efeito dela.
+    /// </summary>
+    public sealed record GuidedParts(NotPrintingScenario Scenario, IReadOnlyList<IRemediationAction> Actions);
 
-    /// <summary>O mesmo cenário sobre dados falsos (modo demonstração); null se o cenário de demonstração não existe.</summary>
-    public static NotPrintingScenario? CreateDemoNotPrintingScenario(string scenario) =>
-        DemoPrintingProvider.Create(scenario) is { } demo ? NotPrintingScenario.Create(demo, demo) : null;
+    /// <summary>Sobre o Windows de verdade.</summary>
+    public static GuidedParts CreateGuidedParts() =>
+        CreateGuidedParts(new WmiPrintSystemProvider(), new WmiPrintDeviceProvider(), new WmiPrinterControl());
+
+    /// <summary>Sobre dados falsos (modo demonstração: até as correções só mudam os dados falsos); null se o cenário não existe.</summary>
+    public static GuidedParts? CreateDemoGuidedParts(string scenario) =>
+        DemoPrintingProvider.Create(scenario) is { } demo ? CreateGuidedParts(demo, demo, demo) : null;
+
+    private static GuidedParts CreateGuidedParts(IPrintSystemProvider system, IPrintDeviceProvider devices, IPrinterControl control) =>
+        new(NotPrintingScenario.Create(system, devices), [new ResumePrinterAction(system, control)]);
 
     private static DiagnosticRegistry CreateRegistry(IPrintSystemProvider systemProvider, IPrintDeviceProvider deviceProvider)
     {

@@ -27,16 +27,19 @@ public static class AppComposition
                   $"Cenário de demonstração desconhecido: '{DemoName}'. Use um destes: {string.Join(", ", DemoPrintingProvider.Scenarios.Keys)}.");
 
     /// <summary>
-    /// O fluxo guiado "Impressora não imprime". Ainda não há correção real cadastrada (fase F): o catálogo vazio
-    /// faz o fluxo mostrar a causa e a orientação, esperar o usuário agir e reverificar. A auditoria fica em memória.
+    /// O fluxo guiado "Impressora não imprime", com as correções que a automação já sabe fazer (hoje: retomar a
+    /// impressora pausada). As causas sem correção disponível vão para o suporte. A auditoria fica em memória.
     /// </summary>
-    public static GuidedNotPrintingFlow CreateGuidedFlow(IUserInteraction user) => new(
-        DemoName is null
-            ? PrintingComposition.CreateNotPrintingScenario()
-            : PrintingComposition.CreateDemoNotPrintingScenario(DemoName)
+    public static GuidedNotPrintingFlow CreateGuidedFlow(IUserInteraction user)
+    {
+        var parts = DemoName is null
+            ? PrintingComposition.CreateGuidedParts()
+            : PrintingComposition.CreateDemoGuidedParts(DemoName)
               ?? throw new InvalidOperationException(
-                  $"Cenário de demonstração desconhecido: '{DemoName}'. Use um destes: {string.Join(", ", DemoPrintingProvider.Scenarios.Keys)}."),
-        new ActionCatalog([]), new RemediationPipeline(new InMemoryAuditLog()), user);
+                  $"Cenário de demonstração desconhecido: '{DemoName}'. Use um destes: {string.Join(", ", DemoPrintingProvider.Scenarios.Keys)}.");
+        return new GuidedNotPrintingFlow(parts.Scenario, new ActionCatalog(parts.Actions),
+            new RemediationPipeline(new InMemoryAuditLog()), user);
+    }
 
     private static string? ReadDemoName()
     {

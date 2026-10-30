@@ -17,6 +17,7 @@ public class GuidedPresenterTests
         public IActionCatalog Catalog { get; set; } = new ActionCatalog([]);
 
         public void PauseX() => World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true, extended: 8));
+        public void JamX() => World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true, error: 8));
         public void FixX() => World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true));
 
         public Task<DiagnosticReport> RunAsync(CancellationToken ct = default) =>
@@ -29,7 +30,7 @@ public class GuidedPresenterTests
     public async Task Caminho_da_orientacao_mostra_quadro_pergunta_reverifica_fecha_e_conclui_nessa_ordem()
     {
         var kit = new Kit();
-        kit.PauseX();
+        kit.JamX();
         kit.Screen.OnPhysicalDone = kit.FixX;
         kit.Screen.WillDoPhysical(PhysicalActionReply.Done).WillAnswerResolved(ResolutionAnswer.Worked);
 
@@ -48,14 +49,14 @@ public class GuidedPresenterTests
     public async Task A_pergunta_so_aparece_depois_de_tudo_que_veio_antes_dela()
     {
         var kit = new Kit();
-        kit.PauseX();
+        kit.JamX();
         kit.Screen.WillDoPhysical(PhysicalActionReply.Skipped);
 
         await kit.RunAsync();
 
         var log = kit.Screen.Log;
         var question = log.IndexOf("physical");
-        var cause = log.FindIndex(l => l.StartsWith("speak:O Windows reporta a fila"));
+        var cause = log.FindIndex(l => l.StartsWith("speak:Segundo o Windows, no equipamento"));
         var lastStepBoard = log.FindLastIndex(question, l => l == "board");
         Assert.True(cause >= 0 && cause < question, "a causa deve ser falada antes da pergunta");
         Assert.True(lastStepBoard >= 0 && lastStepBoard < question, "o quadro deve estar completo antes da pergunta");
@@ -106,11 +107,25 @@ public class GuidedPresenterTests
     }
 
     [Fact]
+    public async Task Causa_que_a_automacao_nao_corrige_vai_para_o_suporte_sem_nenhuma_pergunta_ao_usuario()
+    {
+        var kit = new Kit();
+        kit.PauseX();   // catálogo vazio: sabe corrigir, mas ainda não está disponível
+
+        var report = await kit.RunAsync();
+
+        Assert.DoesNotContain(kit.Screen.Log, l => l is "confirm" or "physical" or "choose" or "resolved");
+        Assert.Contains(kit.Screen.Log, l => l.StartsWith("speak:Descobri o problema"));
+        Assert.Equal("conclusion:Ainda não está resolvido", kit.Screen.Log[^1]);
+        Assert.Equal(FlowResult.NotResolved, report.Closing!.Result);
+    }
+
+    [Fact]
     public async Task Escolha_de_impressora_passa_pela_tela()
     {
         var kit = new Kit();
         kit.World.Printers(GuidedWorld.Pdf(isDefault: true), GuidedWorld.Usb("Impressora A", extended: 8), GuidedWorld.Usb("Impressora B"));
-        kit.Screen.WillChoose("Impressora A").WillDoPhysical(PhysicalActionReply.Skipped);
+        kit.Screen.WillChoose("Impressora A");
 
         await kit.RunAsync();
 
@@ -136,7 +151,7 @@ public class GuidedPresenterTests
     public async Task Se_a_tela_falha_no_meio_o_fluxo_nao_fica_pendurado_e_o_erro_chega_ao_chamador()
     {
         var kit = new Kit();
-        kit.PauseX();
+        kit.JamX();
         kit.Screen.FailOnPhysical = () => new InvalidOperationException("a tela quebrou");
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => kit.RunAsync());
@@ -148,7 +163,7 @@ public class GuidedPresenterTests
     public async Task Fechar_a_janela_enquanto_espera_uma_resposta_cancela_tudo_sem_travar()
     {
         var kit = new Kit();
-        kit.PauseX();
+        kit.JamX();
         using var cts = new CancellationTokenSource();
         // A tela "demora" para responder: a janela é fechada enquanto a pergunta está aberta.
         kit.Screen.FailOnPhysical = () => { cts.Cancel(); return new OperationCanceledException(cts.Token); };
