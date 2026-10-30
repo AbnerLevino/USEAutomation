@@ -22,11 +22,17 @@ public enum TargetMode
 /// </summary>
 public static class CauseAnalyzer
 {
-    public static ScenarioAnalysis Analyze(PrintingSnapshot s, TargetMode mode)
+    /// <param name="onlyPrinter">Quando o usuário escolheu a impressora, só ela é alvo. Causas do sistema todo continuam valendo.</param>
+    public static ScenarioAnalysis Analyze(PrintingSnapshot s, TargetMode mode, string? onlyPrinter = null)
     {
         var notes = new List<string>();
         var assessments = Or(s.PrinterState.Facts);
         var targets = SelectTargets(s, assessments, mode, notes);
+        if (onlyPrinter is not null)
+        {
+            targets = targets.Where(t => string.Equals(t.Printer.Name, onlyPrinter, StringComparison.OrdinalIgnoreCase)).ToList();
+            notes.Add($"Foi avaliada só a impressora escolhida: '{onlyPrinter}'.");
+        }
         var targetNames = targets.Select(t => t.Printer.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var causes = new List<ProbableCause>();
 

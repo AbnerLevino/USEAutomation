@@ -17,6 +17,9 @@ public sealed class FakeUserInteraction : IUserInteraction
     public List<string> Questions { get; } = [];
     public List<string> PhysicalRequests { get; } = [];
 
+    /// <summary>Roda quando chega um pedido de ação física: o teste usa para "consertar" o computador falso, como o usuário faria.</summary>
+    public Action? OnPhysicalAction { get; set; }
+
     public FakeUserInteraction WillConfirm(params bool[] answers) { foreach (var a in answers) _confirmations.Enqueue(a); return this; }
     /// <summary>Id da opção escolhida; null = o usuário cancelou.</summary>
     public FakeUserInteraction WillChoose(params string?[] ids) { foreach (var i in ids) _choices.Enqueue(i); return this; }
@@ -40,7 +43,9 @@ public sealed class FakeUserInteraction : IUserInteraction
     public Task<PhysicalActionReply> RequestPhysicalActionAsync(string instruction, CancellationToken cancellationToken)
     {
         PhysicalRequests.Add(instruction);
-        return Task.FromResult(Next(_physical, "ação física"));
+        var reply = Next(_physical, "ação física");
+        if (reply == PhysicalActionReply.Done) OnPhysicalAction?.Invoke();
+        return Task.FromResult(reply);
     }
 
     public Task<ResolutionAnswer> AskIfResolvedAsync(string question, CancellationToken cancellationToken)
