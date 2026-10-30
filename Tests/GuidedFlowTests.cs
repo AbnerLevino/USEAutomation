@@ -402,7 +402,7 @@ public class GuidedFlowTests
 
         var order = kit.Events.Events.Select(e => e.GetType().Name).Where(n => n is not nameof(Narration) and not nameof(TechnicalNote) and not nameof(StepStarted) and not nameof(StepFinished)).ToList();
         Assert.Equal(
-            [nameof(PrintersFound), nameof(PrinterStateChanged), nameof(CauseFound), nameof(PrinterStateChanged), nameof(ActionFinished), nameof(PrintersFound), nameof(PrinterStateChanged), nameof(FlowClosed)],
+            [nameof(PrintersFound), nameof(PrinterStateChanged), nameof(CauseFound), nameof(PrinterStateChanged), nameof(PrintersFound), nameof(PrinterStateChanged), nameof(ActionFinished), nameof(FlowClosed)],
             order);
     }
 

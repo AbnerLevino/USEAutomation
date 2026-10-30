@@ -7,7 +7,7 @@ namespace AutomationPlatform.Platform.Windows;
 /// Dados FALSOS de impressão, só para ver a janela reagir a cada problema sem mexer no Windows.
 /// Nada aqui lê ou altera o computador: até as "correções" só mudam estes dados falsos. Quem usa tem de deixar claro na tela que é demonstração.
 /// </summary>
-public sealed class DemoPrintingProvider : IPrintSystemProvider, IPrintDeviceProvider, IPrinterControl
+public sealed class DemoPrintingProvider : IPrintSystemProvider, IPrintDeviceProvider, IPrinterControl, IElevatedExecutor
 {
     private const string Usb = "HP LaserJet (demo)";
     private const string Pdf = "Microsoft Print to PDF";
@@ -109,6 +109,18 @@ public sealed class DemoPrintingProvider : IPrintSystemProvider, IPrintDevicePro
             return s.ExtendedStatus == 8 ? s with { ExtendedStatus = 3 } : s;
         }).ToList();
         return Task.FromResult(found ? new ControlResult(true) : new ControlResult(false, $"não encontrei a impressora '{printerName}'."));
+    }
+
+    /// <summary>
+    /// Executor elevado "simulado": nenhum aviso do Windows aparece e nada é alterado de verdade; o serviço de impressão
+    /// dos dados falsos volta a funcionar.
+    /// </summary>
+    public Task<ExecutionResult> RunAsync(string actionId, ActionTarget target, CancellationToken cancellationToken)
+    {
+        if (actionId != PrinterActionIds.RestartSpooler)
+            return Task.FromResult(new ExecutionResult(ExecutionOutcome.Refused, "essa ação não está na lista de ações permitidas."));
+        _spooler = ServiceState.Running;
+        return Task.FromResult(new ExecutionResult(ExecutionOutcome.Done));
     }
 
     /// <summary>Página de teste "simulada": nada é impresso nem enviado a lugar nenhum.</summary>

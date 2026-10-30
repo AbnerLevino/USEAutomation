@@ -1,6 +1,7 @@
 using AutomationPlatform.Contracts;
 using AutomationPlatform.Diagnostics.Printing;
 using AutomationPlatform.Engine;
+using AutomationPlatform.Platform.Windows.Elevation;
 
 namespace AutomationPlatform.Platform.Windows;
 
@@ -23,17 +24,25 @@ public static class PrintingComposition
     /// </summary>
     public sealed record GuidedParts(NotPrintingScenario Scenario, IReadOnlyList<IRemediationAction> Actions);
 
-    /// <summary>Sobre o Windows de verdade.</summary>
+    /// <summary>
+    /// Sobre o Windows de verdade. As ações que exigem administrador passam pelo executor elevado, que só roda se estiver
+    /// numa pasta protegida; para desenvolvimento, AUTOMAXION_DEV_ELEVATED=1 libera uma pasta comum (com aviso no resultado).
+    /// </summary>
     public static GuidedParts CreateGuidedParts() =>
-        CreateGuidedParts(new WmiPrintSystemProvider(), new WmiPrintDeviceProvider(), new WmiPrinterControl());
+        CreateGuidedParts(new WmiPrintSystemProvider(), new WmiPrintDeviceProvider(), new WmiPrinterControl(), CreateElevatedExecutor());
 
-    /// <summary>Sobre dados falsos (modo demonstração: até as correções só mudam os dados falsos); null se o cenário não existe.</summary>
+    /// <summary>Sobre dados falsos (modo demonstração: até as correções, e a "aprovação do administrador", só mudam os dados falsos); null se o cenário não existe.</summary>
     public static GuidedParts? CreateDemoGuidedParts(string scenario) =>
-        DemoPrintingProvider.Create(scenario) is { } demo ? CreateGuidedParts(demo, demo, demo) : null;
+        DemoPrintingProvider.Create(scenario) is { } demo ? CreateGuidedParts(demo, demo, demo, demo) : null;
 
-    private static GuidedParts CreateGuidedParts(IPrintSystemProvider system, IPrintDeviceProvider devices, IPrinterControl control) =>
+    private static ElevatedProcessLauncher CreateElevatedExecutor() => new(
+        ElevatedProcessLauncher.DefaultExecutablePath(), new WindowsElevatedProcessRunner(), new WindowsAclReader(),
+        new ElevatedLaunchOptions(AllowUnprotectedFolder: Environment.GetEnvironmentVariable("AUTOMAXION_DEV_ELEVATED") == "1"));
+
+    private static GuidedParts CreateGuidedParts(
+        IPrintSystemProvider system, IPrintDeviceProvider devices, IPrinterControl control, IElevatedExecutor elevated) =>
         new(NotPrintingScenario.Create(system, devices),
-            [new ResumePrinterAction(system, control), new PrintTestPageAction(system, control)]);
+            [new ResumePrinterAction(system, control), new PrintTestPageAction(system, control), new RestartSpoolerAction(system, elevated)]);
 
     private static DiagnosticRegistry CreateRegistry(IPrintSystemProvider systemProvider, IPrintDeviceProvider deviceProvider)
     {

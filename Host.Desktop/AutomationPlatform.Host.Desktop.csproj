@@ -13,6 +13,8 @@
     <ProjectReference Include="..\Contracts\AutomationPlatform.Contracts.csproj" />
     <ProjectReference Include="..\Engine\AutomationPlatform.Engine.csproj" />
     <ProjectReference Include="..\Platform.Windows\AutomationPlatform.Platform.Windows.csproj" />
+    <!-- O executor elevado é um programa separado: só precisa ser construído e copiado para a pasta do app. -->
+    <ProjectReference Include="..\Host.Elevated\AutomationPlatform.Host.Elevated.csproj"/>
   </ItemGroup>
 
 </Project>

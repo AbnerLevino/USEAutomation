@@ -106,6 +106,22 @@ public class GuidedTestPageTests
     }
 
     [Fact]
+    public async Task O_resultado_da_correcao_so_e_dito_depois_da_conferencia_para_nao_ser_empurrado_para_fora_da_tela()
+    {
+        var kit = new Kit();
+        kit.PauseX();
+        kit.User.WillConfirm(true, false).WillAnswerResolved(ResolutionAnswer.Worked);
+
+        await kit.RunAsync();
+
+        var events = kit.Events.Events;
+        var result = events.FindIndex(e => e is ActionFinished);
+        var lastCheckStep = events.FindLastIndex(e => e is StepFinished);
+        Assert.True(lastCheckStep < result, "o resultado deve vir depois das verificações da conferência");
+        Assert.Single(events.OfType<ActionFinished>());   // dito uma vez só, não duas
+    }
+
+    [Fact]
     public async Task Se_o_usuario_recusa_a_correcao_o_cartao_volta_a_mostrar_o_problema()
     {
         var kit = new Kit();

@@ -141,9 +141,18 @@ public sealed class GuidedNotPrintingFlow(
             Say(events, "Certo, vou fazer isso agora.");
         });
 
-        var record = await runner.RunAsync(action, new ActionTarget(cause.PrinterName), confirmation, ct);
+        var target = new ActionTarget(cause.PrinterName);
+        var record = await runner.RunAsync(action, target, confirmation, ct);
         actions.Add(record);
-        events.Report(new ActionFinished(record));
+        if (!Executed(record)) events.Report(new ActionFinished(record));   // o resultado de uma ação executada só é dito depois da conferência
+
+        // Aprovação do administrador recusada: nada mudou. Oferece tentar de novo, sem repetir a pergunta já respondida.
+        while (record.Status == ActionStatus.ElevationDenied && await user.ConfirmAsync(RetryElevation, ct))
+        {
+            record = await runner.RunAsync(action, target, AlreadyConfirmed.Instance, ct);
+            actions.Add(record);
+            if (!Executed(record)) events.Report(new ActionFinished(record));
+        }
 
         switch (record.Status)
         {
@@ -164,6 +173,7 @@ public sealed class GuidedNotPrintingFlow(
         Say(events, "Vou conferir de novo para ter certeza.");
         var (snapshot, analysis) = await AnalyzeAsync(events, scope, ct);
         PublishPrinterStates(events, snapshot, analysis);
+        events.Report(new ActionFinished(record));   // agora sim: o resultado, depois de conferido
 
         var objective = record.Status switch
         {
@@ -179,6 +189,10 @@ public sealed class GuidedNotPrintingFlow(
 
         return await CloseWithUserAsync(objective, ClosingTexts.Printing, ct);
     }
+
+    /// <summary>A ação chegou a ser executada (houve efeito a conferir), em vez de parar na pré-condição, na recusa ou na falha.</summary>
+    private static bool Executed(ActionRecord record) =>
+        record.Status is ActionStatus.Resolved or ActionStatus.NotResolved or ActionStatus.Inconclusive;
 
     // ---------- página de teste ----------
 
@@ -396,6 +410,16 @@ public sealed class GuidedNotPrintingFlow(
     private sealed class NarrationProgress(IProgress<GuidedEvent> events) : IProgress<DiagnosticProgress>
     {
         public void Report(DiagnosticProgress value) => events.Report(new TechnicalNote(value.Message));
+    }
+
+    private static readonly ConfirmationPrompt RetryElevation = new(
+        "retry-elevation", "Tentar de novo", "Quer tentar de novo? Um administrador precisa aprovar o aviso do Windows.", ActionLevel.N1);
+
+    /// <summary>Confirmação já dada: usada na nova tentativa, para o usuário não responder duas vezes à mesma pergunta.</summary>
+    private sealed class AlreadyConfirmed : IConfirmation
+    {
+        public static readonly AlreadyConfirmed Instance = new();
+        public Task<bool> ConfirmAsync(ConfirmationPrompt prompt, CancellationToken cancellationToken) => Task.FromResult(true);
     }
 
     /// <summary>Repassa a confirmação ao usuário e, se ele disser "sim", avisa a tela antes de a ação executar.</summary>
