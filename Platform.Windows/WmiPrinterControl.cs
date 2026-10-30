@@ -14,6 +14,9 @@ public sealed class WmiPrinterControl : IPrinterControl
     public Task<ControlResult> ResumeAsync(string printerName, CancellationToken cancellationToken) =>
         Task.Run(() => Invoke(printerName, "Resume", cancellationToken), cancellationToken);
 
+    public Task<ControlResult> PrintTestPageAsync(string printerName, CancellationToken cancellationToken) =>
+        Task.Run(() => Invoke(printerName, "PrintTestPage", cancellationToken), cancellationToken);
+
     private static ControlResult Invoke(string printerName, string method, CancellationToken ct)
     {
         try

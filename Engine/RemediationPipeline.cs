@@ -38,7 +38,7 @@ public sealed class RemediationPipeline(IAuditLog audit, TimeProvider? clock = n
         if (!confirmed)
         {
             status = ActionStatus.NotConfirmed;
-            summary = "Nada foi alterado: a correção não foi confirmada.";
+            summary = "Nada foi alterado: a ação não foi confirmada.";
             return Finish();
         }
 
@@ -51,7 +51,7 @@ public sealed class RemediationPipeline(IAuditLog audit, TimeProvider? clock = n
             status = execution.Outcome == ExecutionOutcome.ElevationDenied ? ActionStatus.ElevationDenied : ActionStatus.ExecutionFailed;
             summary = execution.Outcome == ExecutionOutcome.ElevationDenied
                 ? "Para continuar é preciso a aprovação de um administrador. Nada foi alterado."
-                : $"A correção não foi concluída: {execution.Detail ?? "falha na execução"}.";
+                : $"A ação não foi concluída: {execution.Detail ?? "falha na execução"}.";
             return Finish();
         }
 
@@ -63,7 +63,7 @@ public sealed class RemediationPipeline(IAuditLog audit, TimeProvider? clock = n
         {
             VerificationOutcome.Resolved => (ActionStatus.Resolved, $"Resolvido: {verification.Detail}"),
             VerificationOutcome.NotResolved => (ActionStatus.NotResolved, $"Não resolvido: {verification.Detail}"),
-            _ => (ActionStatus.Inconclusive, $"A correção foi executada, mas não foi possível confirmar o resultado: {verification.Detail}")
+            _ => (ActionStatus.Inconclusive, $"A ação foi executada, mas não foi possível confirmar o resultado: {verification.Detail}")
         };
         return Finish();
 

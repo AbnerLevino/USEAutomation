@@ -64,3 +64,29 @@ internal sealed class FixAction(string id, Action fix) : IRemediationAction
     }
     public Task<VerificationResult> VerifyAsync(ActionTarget target, CancellationToken ct) => Task.FromResult(Verification);
 }
+
+/// <summary>
+/// Controle falso das impressoras: "retomar" muda o computador falso (ou não, para simular uma ordem que o
+/// Windows aceita mas não pega) e "página de teste" só anota o pedido.
+/// </summary>
+internal sealed class FakePrinterControl(GuidedWorld world, bool takesEffect = true) : IPrinterControl
+{
+    public List<string> Resumed { get; } = [];
+    public List<string> TestPages { get; } = [];
+    public ControlResult Result { get; set; } = new(true);
+    public ControlResult TestPageResult { get; set; } = new(true);
+
+    public Task<ControlResult> ResumeAsync(string printerName, CancellationToken cancellationToken)
+    {
+        Resumed.Add(printerName);
+        if (Result.Succeeded && takesEffect)
+            world.Printers(GuidedWorld.Usb(printerName, isDefault: true));
+        return Task.FromResult(Result);
+    }
+
+    public Task<ControlResult> PrintTestPageAsync(string printerName, CancellationToken cancellationToken)
+    {
+        TestPages.Add(printerName);
+        return Task.FromResult(TestPageResult);
+    }
+}

@@ -32,7 +32,7 @@ public static class GuidedSpeech
     public const string Cancel = "Cancelar";
     public const string Done = "Já fiz";
     public const string CouldNot = "Não consegui";
-    public const string Worked = "Sim, voltou a imprimir";
-    public const string StillBroken = "Não, continua igual";
-    public const string CannotTest = "Não consegui testar";
+    public const string Worked = "Sim";
+    public const string StillBroken = "Não";
+    public const string CannotTest = "Não consegui verificar";
 }

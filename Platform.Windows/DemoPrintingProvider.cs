@@ -111,6 +111,12 @@ public sealed class DemoPrintingProvider : IPrintSystemProvider, IPrintDevicePro
         return Task.FromResult(found ? new ControlResult(true) : new ControlResult(false, $"não encontrei a impressora '{printerName}'."));
     }
 
+    /// <summary>Página de teste "simulada": nada é impresso nem enviado a lugar nenhum.</summary>
+    public Task<ControlResult> PrintTestPageAsync(string printerName, CancellationToken cancellationToken) =>
+        Task.FromResult(_states.Any(s => string.Equals(s.Name, printerName, StringComparison.OrdinalIgnoreCase))
+            ? new ControlResult(true)
+            : new ControlResult(false, $"não encontrei a impressora '{printerName}'."));
+
     // Cada consulta devolve o cenário; em "sem-acesso" todas falham do mesmo jeito, como numa negação real.
     private SourceResult<T> Answer<T>(IReadOnlyList<T> items) =>
         _failure == SourceStatus.Consulted

@@ -222,7 +222,7 @@ public class GuidedFlowTests
         var kit = new Kit();
         kit.World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true, error: 8), GuidedWorld.Usb("Impressora Y"));
         kit.User.OnPhysicalAction = () => kit.World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true), GuidedWorld.Usb("Impressora Y"));
-        kit.User.WillDoPhysical(PhysicalActionReply.Done).WillAnswerResolved(ResolutionAnswer.Worked);
+        kit.User.WillChoose("Impressora X").WillDoPhysical(PhysicalActionReply.Done).WillAnswerResolved(ResolutionAnswer.Worked);
 
         await kit.RunAsync();
 
@@ -402,7 +402,7 @@ public class GuidedFlowTests
 
         var order = kit.Events.Events.Select(e => e.GetType().Name).Where(n => n is not nameof(Narration) and not nameof(StepStarted) and not nameof(StepFinished)).ToList();
         Assert.Equal(
-            [nameof(PrintersFound), nameof(PrinterStateChanged), nameof(CauseFound), nameof(ActionFinished), nameof(FlowClosed)],
+            [nameof(PrintersFound), nameof(PrinterStateChanged), nameof(CauseFound), nameof(PrinterStateChanged), nameof(ActionFinished), nameof(PrintersFound), nameof(PrinterStateChanged), nameof(FlowClosed)],
             order);
     }
 

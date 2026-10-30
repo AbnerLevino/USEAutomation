@@ -10,6 +10,7 @@ public static class PrinterActionIds
 {
     public const string RestartSpooler = "printing.spooler.restart";
     public const string ResumePrinter = "printing.printer.resume";
+    public const string PrintTestPage = "printing.testpage.print";
     public const string SetPrinterOnline = "printing.printer.set-online";
     public const string CancelStuckJobs = "printing.queue.cancel-stuck";
     public const string SetDefaultPrinter = "printing.default.set";

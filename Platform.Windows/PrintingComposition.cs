@@ -32,7 +32,8 @@ public static class PrintingComposition
         DemoPrintingProvider.Create(scenario) is { } demo ? CreateGuidedParts(demo, demo, demo) : null;
 
     private static GuidedParts CreateGuidedParts(IPrintSystemProvider system, IPrintDeviceProvider devices, IPrinterControl control) =>
-        new(NotPrintingScenario.Create(system, devices), [new ResumePrinterAction(system, control)]);
+        new(NotPrintingScenario.Create(system, devices),
+            [new ResumePrinterAction(system, control), new PrintTestPageAction(system, control)]);
 
     private static DiagnosticRegistry CreateRegistry(IPrintSystemProvider systemProvider, IPrintDeviceProvider deviceProvider)
     {

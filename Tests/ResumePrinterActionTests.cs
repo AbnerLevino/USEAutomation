@@ -7,28 +7,13 @@ namespace AutomationPlatform.Tests;
 
 public class ResumePrinterActionTests
 {
-    /// <summary>Controle falso: "retomar" muda o computador falso (ou não, para simular uma ordem que não pega).</summary>
-    private sealed class FakeControl(GuidedWorld world, bool takesEffect = true) : IPrinterControl
-    {
-        public List<string> Resumed { get; } = [];
-        public ControlResult Result { get; set; } = new(true);
-
-        public Task<ControlResult> ResumeAsync(string printerName, CancellationToken cancellationToken)
-        {
-            Resumed.Add(printerName);
-            if (Result.Succeeded && takesEffect)
-                world.Printers(GuidedWorld.Usb(printerName, isDefault: true));
-            return Task.FromResult(Result);
-        }
-    }
-
     private static readonly ActionTarget X = new("Impressora X");
 
-    private static (GuidedWorld World, FakeControl Control, ResumePrinterAction Action) Setup(bool paused = true, bool takesEffect = true)
+    private static (GuidedWorld World, FakePrinterControl Control, ResumePrinterAction Action) Setup(bool paused = true, bool takesEffect = true)
     {
         var world = new GuidedWorld();
         if (paused) world.Printers(GuidedWorld.Usb("Impressora X", isDefault: true, extended: 8));
-        var control = new FakeControl(world, takesEffect);
+        var control = new FakePrinterControl(world, takesEffect);
         return (world, control, new ResumePrinterAction(world.Sys, control));
     }
 
@@ -156,7 +141,7 @@ public class ResumePrinterActionTests
     private sealed class Run(GuidedWorld world, bool takesEffect)
     {
         public GuidedWorld World { get; } = world;
-        public FakeControl Control { get; } = new(world, takesEffect);
+        public FakePrinterControl Control { get; } = new(world, takesEffect);
         public FakeUserInteraction User { get; } = new();
 
         public Task<DiagnosticReport> GoAsync()

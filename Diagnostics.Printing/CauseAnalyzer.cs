@@ -8,7 +8,9 @@ public enum TargetMode
     /// <summary>Sintoma "não imprime": a impressora padrão; se ela for virtual, também as físicas.</summary>
     DefaultOrPhysical,
     /// <summary>Diagnóstico completo: todas as filas.</summary>
-    AllQueues
+    AllQueues,
+    /// <summary>O usuário não sabe qual é a impressora: todas as filas físicas (as virtuais não levam a um equipamento).</summary>
+    AllPhysical
 }
 
 /// <summary>
@@ -27,12 +29,15 @@ public static class CauseAnalyzer
     {
         var notes = new List<string>();
         var assessments = Or(s.PrinterState.Facts);
-        var targets = SelectTargets(s, assessments, mode, notes);
+        List<PrinterAssessment> targets;
         if (onlyPrinter is not null)
         {
-            targets = targets.Where(t => string.Equals(t.Printer.Name, onlyPrinter, StringComparison.OrdinalIgnoreCase)).ToList();
+            // O usuário escolheu: vale a escolha dele, mesmo que não seja a impressora padrão.
+            targets = assessments.Where(a => string.Equals(a.Printer.Name, onlyPrinter, StringComparison.OrdinalIgnoreCase)).ToList();
             notes.Add($"Foi avaliada só a impressora escolhida: '{onlyPrinter}'.");
         }
+        else
+            targets = SelectTargets(s, assessments, mode, notes);
         var targetNames = targets.Select(t => t.Printer.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var causes = new List<ProbableCause>();
 
@@ -152,6 +157,7 @@ public static class CauseAnalyzer
         PrintingSnapshot s, IReadOnlyList<PrinterAssessment> all, TargetMode mode, List<string> notes)
     {
         if (mode == TargetMode.AllQueues) return all.ToList();
+        if (mode == TargetMode.AllPhysical) return all.Where(a => !a.IsVirtual).ToList();
 
         var physical = all.Where(a => !a.IsVirtual).ToList();
         if (s.DefaultPrinter.Facts?.DefaultName is not { } defaultName) return physical;

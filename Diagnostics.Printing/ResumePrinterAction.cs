@@ -14,6 +14,9 @@ public interface IPrinterControl
 {
     /// <summary>Retoma uma fila pausada. Não apaga nada.</summary>
     Task<ControlResult> ResumeAsync(string printerName, CancellationToken cancellationToken);
+
+    /// <summary>Manda a página de teste do próprio Windows para a fila. Só o usuário vê se ela saiu.</summary>
+    Task<ControlResult> PrintTestPageAsync(string printerName, CancellationToken cancellationToken);
 }
 
 /// <summary>
