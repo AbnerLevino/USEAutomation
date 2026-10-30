@@ -28,7 +28,7 @@ public partial class MainWindow : Window
             warning.FontWeight = FontWeights.SemiBold;
         }
         _view.AddBubble(fromComputer: true, out var greeting);
-        greeting.Text = "Olá! Se a sua impressora não está imprimindo, clique no botão abaixo. Eu mostro, passo a passo, o que estou verificando.";
+        greeting.Text = "Olá! Vou investigar o que está acontecendo com a sua impressora.";
         Closing += (_, _) => _closing.Cancel();
     }
 
