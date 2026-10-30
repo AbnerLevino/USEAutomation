@@ -102,7 +102,7 @@ public class GuidedTestPageTests
         await kit.RunAsync();
 
         Assert.Equal(12, kit.Events.Of<StepFinished>().Count());
-        Assert.Contains(kit.Events.Of<Narration>(), n => n.Message.Contains("conferir o computador de novo"));
+        Assert.Contains(kit.Events.Of<Narration>(), n => n.Message.Contains("conferir de novo"));
     }
 
     [Fact]

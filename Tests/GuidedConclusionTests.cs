@@ -39,24 +39,36 @@ public class GuidedConclusionTests
         var objective = ReportToChat.GuidedConclusion(Report(new FlowClosing(FlowResult.Resolved, ClosingBasis.ObjectiveVerification, "x")));
 
         Assert.Contains(user.Lines!, l => l.Contains("sua resposta"));
-        Assert.Contains(objective.Lines!, l => l.Contains("só na verificação do sistema"));
+        Assert.Contains(objective.Lines!, l => l.Contains("só o que o computador mostrou"));
     }
 
     [Fact]
-    public void Quando_resolvido_as_orientacoes_de_correcao_somem_mas_o_que_foi_achado_fica()
+    public void O_cartao_nao_traz_detalhe_tecnico_nem_orientacao_de_correcao_manual()
+    {
+        var report = Report(new FlowClosing(FlowResult.NotResolved, ClosingBasis.None, "x"));
+
+        var message = ReportToChat.GuidedConclusion(report);
+
+        // O relatório tem achados e recomendações; o cartão do usuário não repete nada disso.
+        Assert.DoesNotContain(message.Lines!, l => l.StartsWith("→") || l.Contains("Causa provável") || l.Contains("Retome a fila"));
+    }
+
+    [Fact]
+    public void Quando_resolvido_nao_manda_procurar_o_suporte()
     {
         var message = ReportToChat.GuidedConclusion(Report(new FlowClosing(FlowResult.Resolved, ClosingBasis.UserAnswer, "x")));
 
-        Assert.DoesNotContain(message.Lines!, l => l.StartsWith("→"));
-        Assert.Contains(message.Lines!, l => l.Contains("fila pausada"));
+        Assert.DoesNotContain(message.Lines!, l => l.Contains("suporte"));
     }
 
-    [Fact]
-    public void Quando_nao_resolvido_as_orientacoes_continuam()
+    [Theory]
+    [InlineData(FlowResult.NotResolved)]
+    [InlineData(FlowResult.Inconclusive)]
+    public void Quando_nao_resolveu_diz_para_onde_ir(FlowResult result)
     {
-        var message = ReportToChat.GuidedConclusion(Report(new FlowClosing(FlowResult.NotResolved, ClosingBasis.None, "x")));
+        var message = ReportToChat.GuidedConclusion(Report(new FlowClosing(result, ClosingBasis.None, "x")));
 
-        Assert.Contains(message.Lines!, l => l.StartsWith("→ Retome a fila"));
+        Assert.Contains(message.Lines!, l => l.Contains("procure o suporte"));
     }
 
     [Fact]

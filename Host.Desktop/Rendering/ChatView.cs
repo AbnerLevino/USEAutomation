@@ -250,9 +250,16 @@ public sealed class ChatView(ScrollViewer scroll, Panel chat, ChatPacing pacing,
             if (child is Border border) Motion.Dim(border.Child);
     }
 
+    /// <summary>
+    /// Quantas mensagens ficam visíveis ao mesmo tempo: as três anteriores e a atual. Quando chega a quinta, a mais
+    /// antiga sai. Isto é um acompanhamento do que está acontecendo, não um histórico de conversa.
+    /// </summary>
+    public const int MaxVisibleMessages = 4;
+
     private void Append(FrameworkElement element)
     {
         chat.Children.Add(element);
+        while (chat.Children.Count > MaxVisibleMessages) chat.Children.RemoveAt(0);
         Motion.Enter(element);
         SmoothScroll.ToEnd(scroll);
     }

@@ -68,19 +68,18 @@ public static class ReportToChat
             _ => ("Não consegui concluir", ChatTone.Neutral)
         };
 
+        // O cartão é para quem não é técnico: o resultado, em que ele se baseia e, se não resolveu, para onde ir.
+        // Os detalhes técnicos (causas, evidências, ações) ficam no relatório, não na tela.
         var lines = new List<string>();
         var basis = closing.Basis switch
         {
-            ClosingBasis.UserAnswer => "Esta conclusão se baseia na sua resposta.",
-            ClosingBasis.ObjectiveVerification => "Esta conclusão se baseia só na verificação do sistema, não em um teste seu.",
+            ClosingBasis.UserAnswer => "Considerei a sua resposta.",
+            ClosingBasis.ObjectiveVerification => "Considerei só o que o computador mostrou, sem um teste seu.",
             _ => null
         };
         if (basis is not null) lines.Add(basis);
-        lines.AddRange(report.Actions.Select(a => $"• {a.Summary}"));
-
-        // Resolvido: as orientações ("→") já não servem; o que foi achado continua sendo o registro do que houve.
-        var details = common.Lines ?? [];
-        lines.AddRange(closing.Result == FlowResult.Resolved ? details.Where(l => !l.StartsWith("→")) : details);
+        if (closing.Result is FlowResult.NotResolved or FlowResult.Inconclusive)
+            lines.Add("Se precisar, procure o suporte: os detalhes ficam registrados no relatório.");
 
         return new ChatMessage(ChatKind.Conclusion, title, tone, closing.Message, lines);
     }

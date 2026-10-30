@@ -1,20 +1,49 @@
 using AutomationPlatform.Contracts;
+using AutomationPlatform.Diagnostics.Printing;
 
 namespace AutomationPlatform.Host.Desktop.Guided;
 
 /// <summary>O que o computador "fala" para cada evento, e os textos dos botões. Só texto: dá para testar.</summary>
 public static class GuidedSpeech
 {
-    /// <summary>A fala de um evento; null = o evento só atualiza o quadro, sem fala.</summary>
+    /// <summary>
+    /// A linha que a tela mostra para um evento; null = o evento só atualiza o quadro, sem linha. A linguagem é a de
+    /// quem não é técnico: as observações técnicas das verificações (<see cref="TechnicalNote"/>) não aparecem aqui.
+    /// </summary>
     public static string? For(GuidedEvent e) => e switch
     {
         Narration n => n.Message,
-        // O título já foi dito pela narração do cenário ("Causa provável: ..."); aqui só se explica o porquê.
-        CauseFound c => c.Description,
+        StepStarted s => StepText(s.Key, s.Label),
+        CauseFound c => CauseWording.Plain(c.Code, c.PrinterName, c.Description),
         NoCauseFound n => n.Message,
-        ActionFinished a => a.Record.Summary,
+        ActionFinished a => ActionText(a.Record),
         _ => null
     };
+
+    private static string StepText(string key, string label) => key switch
+    {
+        "spooler" => "Verificando se o serviço de impressão do computador está funcionando.",
+        "state" => "Vendo como estão as impressoras.",
+        "queue" => "Procurando documentos travados esperando para imprimir.",
+        "device" => "Conferindo se o computador reconhece a impressora.",
+        "default" => "Conferindo qual impressora o computador usa como principal.",
+        "port" => "Conferindo a ligação das impressoras com o computador.",
+        _ => $"Verificando: {label}."
+    };
+
+    /// <summary>O resultado de uma ação em palavras simples. Uma ação recusada pelo usuário não gera linha.</summary>
+    private static string? ActionText(ActionRecord r) => r.Status switch
+    {
+        ActionStatus.Resolved => $"Pronto! {Cap(r.VerificationDetail ?? r.Summary)}",
+        ActionStatus.NotResolved => $"Não deu certo: {r.VerificationDetail ?? r.Summary}",
+        ActionStatus.Inconclusive => Cap(r.VerificationDetail ?? r.Summary),
+        ActionStatus.PreconditionFailed => $"Não foi preciso mudar nada: {r.PreconditionDetail ?? r.Summary}",
+        ActionStatus.ExecutionFailed => $"Não consegui fazer isso: {r.ExecutionDetail ?? "o Windows não permitiu."}",
+        ActionStatus.ElevationDenied => "Para continuar é preciso a aprovação de um administrador. Nada foi alterado.",
+        _ => null
+    };
+
+    private static string Cap(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 
     /// <summary>O texto da pergunta de confirmação, com os avisos de administrador e de perda de dados quando couber.</summary>
     public static string ConfirmText(ConfirmationPrompt prompt)

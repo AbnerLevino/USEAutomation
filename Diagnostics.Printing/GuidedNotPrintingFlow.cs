@@ -78,7 +78,7 @@ public sealed class GuidedNotPrintingFlow(
     private async Task<DiagnosticReport> RunCoreAsync(
         DateTimeOffset started, IProgress<GuidedEvent> events, List<ActionRecord> actions, CancellationToken ct)
     {
-        Say(events, "Antes de começar: enquanto investigo, não altero nada. Só leio o estado do computador.");
+        Say(events, "Vou olhar o que está acontecendo. Por enquanto só observo: não mudo nada no seu computador.");
         var (snapshot, analysis) = await AnalyzeAsync(events, PrinterScope.Default, ct);
 
         // 1. Mais de uma impressora física: o motor não sabe qual é a do usuário, e o padrão não prova isso.
@@ -87,7 +87,7 @@ public sealed class GuidedNotPrintingFlow(
         if (physical.Count > 1)
         {
             var options = physical.Select(n => new Choice(n, n)).Append(new Choice(AnyPrinter, "Não sei qual")).ToList();
-            var choice = await user.ChooseAsync("Encontrei mais de uma impressora. Qual delas não está imprimindo?", options, ct);
+            var choice = await user.ChooseAsync("Encontrei mais de uma impressora. Qual delas está com problema?", options, ct);
             if (choice is null)
                 return Finish(started, actions, analysis, snapshot,
                     new FlowClosing(FlowResult.Cancelled, ClosingBasis.None, "Você cancelou. Nada foi alterado."), events);
@@ -101,10 +101,10 @@ public sealed class GuidedNotPrintingFlow(
         // 2. Sem causa: o motor não finge que está tudo bem. A página de teste deixa o usuário conferir com os próprios olhos.
         if (analysis.Primary is not { } primary)
         {
-            const string message = "Não encontrei nenhuma causa nas verificações que fiz. Isso não prova que a impressão funciona: se o problema continuar, procure o suporte.";
+            const string message = "Não encontrei nenhum problema no que verifiquei. Isso não garante que a impressão esteja funcionando: se continuar sem imprimir, procure o suporte.";
             events.Report(new NoCauseFound(message));
             var closingNoCause = await OfferTestPageAsync(
-                SoleTarget(snapshot, analysis, scope), FlowResult.Inconclusive, "nenhuma causa foi encontrada.", actions, events, ct)
+                SoleTarget(snapshot, analysis, scope), FlowResult.Inconclusive, actions, events, ct)
                 ?? new FlowClosing(FlowResult.Inconclusive, ClosingBasis.None, message);
             return Finish(started, actions, analysis, snapshot, closingNoCause, events);
         }
@@ -131,7 +131,7 @@ public sealed class GuidedNotPrintingFlow(
         IRemediationAction action, ProbableCause cause, PrinterScope scope,
         List<ActionRecord> actions, IProgress<GuidedEvent> events, CancellationToken ct)
     {
-        Say(events, $"Encontrei uma correção para isso: {action.DisplayName}.");
+        Say(events, "Sei como resolver isso.");
 
         // Depois do "sim" do usuário, a tela já mostra que a impressora está sendo corrigida.
         var confirmation = new AnnounceOnConfirm(user, () =>
@@ -161,7 +161,7 @@ public sealed class GuidedNotPrintingFlow(
         }
 
         // A ação rodou. O usuário vê a conferência acontecer: as seis verificações rodam de novo e os cartões mudam.
-        Say(events, "Vou conferir o computador de novo para confirmar o resultado.");
+        Say(events, "Vou conferir de novo para ter certeza.");
         var (snapshot, analysis) = await AnalyzeAsync(events, scope, ct);
         PublishPrinterStates(events, snapshot, analysis);
 
@@ -174,10 +174,10 @@ public sealed class GuidedNotPrintingFlow(
 
         // Consertou: a página de teste deixa o usuário ver o papel sair, sem abrir o Painel de Controle.
         if (objective == FlowResult.Resolved
-            && await OfferTestPageAsync(cause.PrinterName, objective, record.Summary, actions, events, ct) is { } viaTestPage)
+            && await OfferTestPageAsync(cause.PrinterName, objective, actions, events, ct) is { } viaTestPage)
             return viaTestPage;
 
-        return await CloseWithUserAsync(objective, record.Summary, ClosingTexts.Printing, ct);
+        return await CloseWithUserAsync(objective, ClosingTexts.Printing, ct);
     }
 
     // ---------- página de teste ----------
@@ -187,7 +187,7 @@ public sealed class GuidedNotPrintingFlow(
     /// foi enviada e o usuário respondeu; null quando não houve página (recusou, indisponível ou falhou).
     /// </summary>
     private async Task<FlowClosing?> OfferTestPageAsync(
-        string? printer, FlowResult objective, string objectiveDetail,
+        string? printer, FlowResult objective,
         List<ActionRecord> actions, IProgress<GuidedEvent> events, CancellationToken ct)
     {
         if (printer is null || catalog.Find(PrinterActionIds.PrintTestPage) is not { } testPage) return null;
@@ -199,7 +199,7 @@ public sealed class GuidedNotPrintingFlow(
         events.Report(new ActionFinished(record));
         if (record.Status is not (ActionStatus.Resolved or ActionStatus.Inconclusive)) return null;
 
-        return await CloseWithUserAsync(objective, objectiveDetail, ClosingTexts.TestPage, ct);
+        return await CloseWithUserAsync(objective, ClosingTexts.TestPage, ct);
     }
 
     /// <summary>Em "não sei qual" ou com várias físicas avaliadas não há uma impressora só para a página de teste.</summary>
@@ -223,9 +223,8 @@ public sealed class GuidedNotPrintingFlow(
     /// <summary>A automação descobriu o problema mas não corrige sozinha: assume e deixa o relatório para o suporte.</summary>
     private static FlowClosing HandOffToSupport(ProbableCause cause, IProgress<GuidedEvent> events)
     {
-        var message = cause.CandidateActionId is not null
-            ? $"Descobri o problema: {cause.Title}. Eu sei como corrigir, mas essa correção ainda não está disponível nesta versão. Procure o suporte; os detalhes ficam registrados no relatório."
-            : $"Descobri o problema: {cause.Title}. Ele precisa de um técnico. Procure o suporte; os detalhes ficam registrados no relatório.";
+        var message = $"Encontrei o problema: {CauseWording.Plain(cause.Code, cause.PrinterName, cause.Description)} " +
+                      "Ainda não consigo resolver isso por aqui. Procure o suporte; os detalhes ficam registrados no relatório.";
         Say(events, message);
         return new FlowClosing(FlowResult.NotResolved, ClosingBasis.None, message);
     }
@@ -237,13 +236,13 @@ public sealed class GuidedNotPrintingFlow(
     {
         while (true)
         {
-            var reply = await user.RequestPhysicalActionAsync(cause.Guidance, ct);
+            var reply = await user.RequestPhysicalActionAsync(CauseWording.AtTheEquipment(cause.PrinterName, cause.Description), ct);
             if (reply == PhysicalActionReply.Cancel)
                 return new FlowClosing(FlowResult.Cancelled, ClosingBasis.None, "Você cancelou. Nada foi alterado.");
             if (reply == PhysicalActionReply.Skipped)
                 return new FlowClosing(FlowResult.NotResolved, ClosingBasis.None, "Você não fez isso agora. O problema continua.");
 
-            Say(events, "Obrigado. Vou conferir de novo, sem presumir que deu certo.");
+            Say(events, "Obrigado. Vou conferir de novo.");
             var (snapshot, analysis) = await AnalyzeAsync(events, scope, ct);
             // A nova rodada reenvia as impressoras no estado inicial: os cartões precisam do estado atualizado.
             PublishPrinterStates(events, snapshot, analysis);
@@ -252,33 +251,36 @@ public sealed class GuidedNotPrintingFlow(
             {
                 if (now.Code == cause.Code && SamePrinter(now.PrinterName, cause.PrinterName))
                 {
-                    Say(events, "Ainda vejo o mesmo problema.");
+                    Say(events, "O problema ainda está aí.");
                     continue;
                 }
 
                 events.Report(new CauseFound(now.Code, now.Title, now.Description, now.Guidance, now.PrinterName, now.CandidateActionId));
                 return new FlowClosing(FlowResult.NotResolved, ClosingBasis.ObjectiveVerification,
-                    $"O problema \"{cause.Title}\" não aparece mais, mas encontrei outro: \"{now.Title}\". Rode o diagnóstico de novo.");
+                    $"O problema anterior não aparece mais, mas encontrei outro: {CauseWording.Plain(now.Code, now.PrinterName, now.Description)} Comece um novo atendimento para tratar disso.");
             }
 
-            var detail = $"A verificação não encontra mais o problema \"{cause.Title}\" (outros pontos não foram verificados).";
-            if (await OfferTestPageAsync(cause.PrinterName, FlowResult.Resolved, detail, actions, events, ct) is { } viaTestPage)
+            if (await OfferTestPageAsync(cause.PrinterName, FlowResult.Resolved, actions, events, ct) is { } viaTestPage)
                 return viaTestPage;
-            return await CloseWithUserAsync(FlowResult.Resolved, detail, ClosingTexts.Printing, ct);
+            return await CloseWithUserAsync(FlowResult.Resolved, ClosingTexts.Printing, ct);
         }
     }
 
     // ---------- fechamento humano ----------
 
-    private async Task<FlowClosing> CloseWithUserAsync(FlowResult objective, string objectiveDetail, ClosingTexts texts, CancellationToken ct)
+    private async Task<FlowClosing> CloseWithUserAsync(FlowResult objective, ClosingTexts texts, CancellationToken ct)
     {
         var answer = await user.AskIfResolvedAsync(texts.Question, ct);
         return answer switch
         {
             ResolutionAnswer.Worked => new FlowClosing(FlowResult.Resolved, ClosingBasis.UserAnswer, texts.Worked),
             ResolutionAnswer.StillNotWorking => new FlowClosing(FlowResult.NotResolved, ClosingBasis.UserAnswer, texts.StillBroken),
-            _ => new FlowClosing(objective, ClosingBasis.ObjectiveVerification,
-                $"Você não pôde testar, então vale só a verificação do sistema: {objectiveDetail}")
+            _ => new FlowClosing(objective, ClosingBasis.ObjectiveVerification, objective switch
+            {
+                FlowResult.Resolved => "Você não conseguiu verificar. Pelo que o computador mostra, o problema foi resolvido.",
+                FlowResult.NotResolved => "Você não conseguiu verificar. Pelo que o computador mostra, o problema continua.",
+                _ => "Você não conseguiu verificar, e o computador também não permite confirmar o resultado."
+            })
         };
     }
 
@@ -390,10 +392,10 @@ public sealed class GuidedNotPrintingFlow(
 
     private static void Say(IProgress<GuidedEvent> events, string message) => events.Report(new Narration(message));
 
-    /// <summary>Transforma a narração das verificações em eventos de narração, na mesma ordem.</summary>
+    /// <summary>Transforma a narração técnica das verificações em eventos, na mesma ordem (a tela do usuário não os mostra).</summary>
     private sealed class NarrationProgress(IProgress<GuidedEvent> events) : IProgress<DiagnosticProgress>
     {
-        public void Report(DiagnosticProgress value) => events.Report(new Narration(value.Message));
+        public void Report(DiagnosticProgress value) => events.Report(new TechnicalNote(value.Message));
     }
 
     /// <summary>Repassa a confirmação ao usuário e, se ele disser "sim", avisa a tela antes de a ação executar.</summary>

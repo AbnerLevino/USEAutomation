@@ -31,7 +31,7 @@ public sealed class ResumePrinterAction(IPrintSystemProvider system, IPrinterCon
     public ActionLevel Level => ActionLevel.N1;
 
     public string DescribeForConfirmation(ActionTarget target) =>
-        $"A impressora '{target.PrinterName}' está pausada, e por isso nada sai dela. Posso retomá-la? Nada será apagado.";
+        $"A impressora '{target.PrinterName}' está pausada, por isso nada sai dela. Posso liberar a impressão? Nada será apagado.";
 
     public async Task<PreconditionResult> CheckPreconditionAsync(ActionTarget target, CancellationToken cancellationToken)
     {

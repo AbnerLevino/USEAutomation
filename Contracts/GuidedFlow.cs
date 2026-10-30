@@ -117,3 +117,9 @@ public interface IReportSink
 {
     Task SubmitAsync(DiagnosticReport report, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Uma observação técnica das verificações ("Vou perguntar ao Windows o estado de cada fila..."). Serve ao terminal,
+/// ao registro e ao suporte; a tela do usuário NÃO a mostra, porque tem a própria linguagem simples.
+/// </summary>
+public sealed record TechnicalNote(string Message) : GuidedEvent;

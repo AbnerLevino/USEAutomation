@@ -21,7 +21,7 @@
 
         <!-- O log da conversa rola aqui em cima. -->
         <ScrollViewer Grid.Row="1" x:Name="Scroll" VerticalScrollBarVisibility="Auto" Padding="16,12">
-            <StackPanel x:Name="ChatPanel" />
+            <StackPanel x:Name="ChatPanel" AutomationProperties.AutomationId="chat-log" />
         </ScrollViewer>
 
         <!-- O quadro de impressoras e etapas fica FIXO aqui embaixo e só muda de conteúdo. Aparece quando o fluxo começa. -->

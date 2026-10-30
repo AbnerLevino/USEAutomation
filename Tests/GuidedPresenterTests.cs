@@ -58,7 +58,7 @@ public class GuidedPresenterTests
 
         var log = kit.Screen.Log;
         var question = log.IndexOf("physical");
-        var cause = log.FindIndex(l => l.StartsWith("speak:Segundo o Windows, no equipamento"));
+        var cause = log.FindIndex(l => l.StartsWith("speak:A impressora 'Impressora X' está avisando"));
         var lastStepBoard = log.FindLastIndex(question, l => l == "board");
         Assert.True(cause >= 0 && cause < question, "a causa deve ser falada antes da pergunta");
         Assert.True(lastStepBoard >= 0 && lastStepBoard < question, "o quadro deve estar completo antes da pergunta");
@@ -220,7 +220,7 @@ public class GuidedPresenterTests
         var report = await kit.RunAsync();
 
         Assert.DoesNotContain(kit.Screen.Log, l => l is "confirm" or "physical" or "choose" or "resolved");
-        Assert.Contains(kit.Screen.Log, l => l.StartsWith("speak:Descobri o problema"));
+        Assert.Contains(kit.Screen.Log, l => l.StartsWith("speak:Encontrei o problema"));
         Assert.Equal("conclusion:Ainda não está resolvido", kit.Screen.Log.Last(l => l.StartsWith("conclusion:")));
         Assert.Equal(FlowResult.NotResolved, report.Closing!.Result);
     }
@@ -235,8 +235,8 @@ public class GuidedPresenterTests
         await kit.RunAsync();
 
         Assert.Contains("choose", kit.Screen.Log);
-        Assert.Contains(kit.Screen.Log, l => l.StartsWith("speak:Causa provável: A fila 'Impressora A' está pausada"));
-        Assert.Single(kit.Screen.Log, l => l.Contains("'Impressora A' está pausada") && l.StartsWith("speak:Causa provável"));
+        Assert.Contains(kit.Screen.Log, l => l.StartsWith("speak:A impressora 'Impressora A' está pausada, por isso nada sai dela."));
+        Assert.Single(kit.Screen.Log, l => l.StartsWith("speak:A impressora 'Impressora A' está pausada"));
     }
 
     [Fact]

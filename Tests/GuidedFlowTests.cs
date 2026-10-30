@@ -140,7 +140,7 @@ public class GuidedFlowTests
         Assert.Empty(kit.User.Questions);
         Assert.Equal(FlowResult.NotResolved, report.Closing!.Result);
         Assert.Equal(ClosingBasis.None, report.Closing.Basis);
-        Assert.Contains("Eu sei como corrigir", report.Closing.Message);
+        Assert.Contains("está pausada", report.Closing.Message);
         Assert.Contains("Procure o suporte", report.Closing.Message);
     }
 
@@ -154,7 +154,7 @@ public class GuidedFlowTests
 
         Assert.Empty(kit.User.PhysicalRequests);
         Assert.Equal(CauseCodes.PrinterNoPort, kit.Events.Of<CauseFound>().Single().Code);
-        Assert.Contains("precisa de um técnico", report.Closing!.Message);
+        Assert.Contains("Procure o suporte", report.Closing!.Message);
     }
 
     [Fact]
@@ -166,7 +166,7 @@ public class GuidedFlowTests
         var report = await kit.RunAsync();
 
         Assert.Empty(kit.User.PhysicalRequests);
-        Assert.Contains("precisa de um técnico", report.Closing!.Message);
+        Assert.Contains("Procure o suporte", report.Closing!.Message);
     }
 
     [Fact]
@@ -245,7 +245,7 @@ public class GuidedFlowTests
 
         Assert.Equal(2, kit.User.PhysicalRequests.Count);
         Assert.Equal(FlowResult.NotResolved, report.Closing!.Result);
-        Assert.Contains(kit.Events.Of<Narration>(), n => n.Message.Contains("Ainda vejo o mesmo problema"));
+        Assert.Contains(kit.Events.Of<Narration>(), n => n.Message.Contains("O problema ainda está aí"));
     }
 
     [Fact]
@@ -358,7 +358,7 @@ public class GuidedFlowTests
         var report = await kit.RunAsync();
 
         var none = Assert.Single(kit.Events.Of<NoCauseFound>());
-        Assert.Contains("não prova", none.Message);
+        Assert.Contains("não garante", none.Message);
         Assert.Equal(FlowResult.Inconclusive, report.Closing!.Result);
         Assert.Equal(ClosingBasis.None, report.Closing.Basis);
     }
@@ -400,7 +400,7 @@ public class GuidedFlowTests
 
         await kit.RunAsync();
 
-        var order = kit.Events.Events.Select(e => e.GetType().Name).Where(n => n is not nameof(Narration) and not nameof(StepStarted) and not nameof(StepFinished)).ToList();
+        var order = kit.Events.Events.Select(e => e.GetType().Name).Where(n => n is not nameof(Narration) and not nameof(TechnicalNote) and not nameof(StepStarted) and not nameof(StepFinished)).ToList();
         Assert.Equal(
             [nameof(PrintersFound), nameof(PrinterStateChanged), nameof(CauseFound), nameof(PrinterStateChanged), nameof(ActionFinished), nameof(PrintersFound), nameof(PrinterStateChanged), nameof(FlowClosed)],
             order);
