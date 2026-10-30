@@ -19,9 +19,11 @@
             </StackPanel>
         </Border>
 
-        <!-- O log da conversa rola aqui em cima. -->
+        <!-- O registro fica colado na base da área: a mensagem nova nasce embaixo e empurra as anteriores para cima. -->
         <ScrollViewer Grid.Row="1" x:Name="Scroll" VerticalScrollBarVisibility="Auto" Padding="16,12">
-            <StackPanel x:Name="ChatPanel" AutomationProperties.AutomationId="chat-log" />
+            <Grid MinHeight="{Binding ViewportHeight, ElementName=Scroll}">
+                <StackPanel x:Name="ChatPanel" VerticalAlignment="Bottom" AutomationProperties.AutomationId="chat-log" />
+            </Grid>
         </ScrollViewer>
 
         <!-- O quadro de impressoras e etapas fica FIXO aqui embaixo e só muda de conteúdo. Aparece quando o fluxo começa. -->
