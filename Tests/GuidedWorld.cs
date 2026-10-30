@@ -43,3 +43,24 @@ internal sealed class GuidedWorld
 
     public NotPrintingScenario Scenario() => NotPrintingScenario.Create(Sys, Dev);
 }
+
+/// <summary>Ação falsa que "conserta" o computador falso quando executa.</summary>
+internal sealed class FixAction(string id, Action fix) : IRemediationAction
+{
+    public bool Executed { get; private set; }
+    public PreconditionResult Precondition { get; set; } = PreconditionResult.Ok;
+    public VerificationResult Verification { get; set; } = new(VerificationOutcome.Resolved, "a leitura nova confirma o conserto");
+
+    public string Id => id;
+    public string DisplayName => "Retomar a impressora";
+    public ActionLevel Level => ActionLevel.N1;
+    public string DescribeForConfirmation(ActionTarget target) => $"Vou retomar '{target.PrinterName}'.";
+    public Task<PreconditionResult> CheckPreconditionAsync(ActionTarget target, CancellationToken ct) => Task.FromResult(Precondition);
+    public Task<ExecutionResult> ExecuteAsync(ActionTarget target, CancellationToken ct)
+    {
+        Executed = true;
+        fix();
+        return Task.FromResult(new ExecutionResult(ExecutionOutcome.Done));
+    }
+    public Task<VerificationResult> VerifyAsync(ActionTarget target, CancellationToken ct) => Task.FromResult(Verification);
+}

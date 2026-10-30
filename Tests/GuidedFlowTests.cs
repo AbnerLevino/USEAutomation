@@ -6,27 +6,6 @@ namespace AutomationPlatform.Tests;
 
 public class GuidedFlowTests
 {
-    /// <summary>Ação falsa que "conserta" o computador falso quando executa.</summary>
-    private sealed class FixAction(string id, Action fix) : IRemediationAction
-    {
-        public bool Executed { get; private set; }
-        public PreconditionResult Precondition { get; set; } = PreconditionResult.Ok;
-        public VerificationResult Verification { get; set; } = new(VerificationOutcome.Resolved, "a leitura nova confirma o conserto");
-
-        public string Id => id;
-        public string DisplayName => "Retomar a impressora";
-        public ActionLevel Level => ActionLevel.N1;
-        public string DescribeForConfirmation(ActionTarget target) => $"Vou retomar '{target.PrinterName}'.";
-        public Task<PreconditionResult> CheckPreconditionAsync(ActionTarget target, CancellationToken ct) => Task.FromResult(Precondition);
-        public Task<ExecutionResult> ExecuteAsync(ActionTarget target, CancellationToken ct)
-        {
-            Executed = true;
-            fix();
-            return Task.FromResult(new ExecutionResult(ExecutionOutcome.Done));
-        }
-        public Task<VerificationResult> VerifyAsync(ActionTarget target, CancellationToken ct) => Task.FromResult(Verification);
-    }
-
     private sealed class Catalog(params IRemediationAction[] actions) : IActionCatalog
     {
         public IRemediationAction? Find(string actionId) => actions.FirstOrDefault(a => a.Id == actionId);
@@ -165,6 +144,24 @@ public class GuidedFlowTests
         Assert.Equal(ClosingBasis.UserAnswer, report.Closing.Basis);
         // Reverificou de verdade: as seis etapas rodaram duas vezes.
         Assert.Equal(12, kit.Events.Of<StepFinished>().Count());
+    }
+
+    [Fact]
+    public async Task Depois_da_reverificacao_os_cartoes_ganham_o_estado_atual_e_nao_voltam_ao_inicial()
+    {
+        var kit = new Kit();
+        kit.World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true, extended: 8), GuidedWorld.Usb("Impressora Y"));
+        kit.User.OnPhysicalAction = () => kit.World.Printers(GuidedWorld.Usb("Impressora X", isDefault: true), GuidedWorld.Usb("Impressora Y"));
+        kit.User.WillDoPhysical(PhysicalActionReply.Done).WillAnswerResolved(ResolutionAnswer.Worked);
+
+        await kit.RunAsync();
+
+        // Há duas rodadas de PrintersFound; depois de cada uma, o estado é republicado.
+        Assert.Equal(2, kit.Events.Of<PrintersFound>().Count());
+        var lastX = kit.Events.Of<PrinterStateChanged>().Last(c => c.Name == "Impressora X");
+        Assert.Equal(PrinterCardState.Ok, lastX.State);
+        var lastEvent = kit.Events.Events.FindLastIndex(e => e is PrintersFound);
+        Assert.Contains(kit.Events.Events.Skip(lastEvent + 1), e => e is PrinterStateChanged { Name: "Impressora X" });
     }
 
     [Fact]

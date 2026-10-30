@@ -1,21 +1,17 @@
-using System.Threading.Channels;
 using System.Windows;
-using AutomationPlatform.Diagnostics.Printing;
-using AutomationPlatform.Engine;
-using AutomationPlatform.Host.Desktop.Chat;
 using AutomationPlatform.Host.Desktop.Composition;
+using AutomationPlatform.Host.Desktop.Guided;
 using AutomationPlatform.Host.Desktop.Rendering;
 
 namespace AutomationPlatform.Host.Desktop;
 
 /// <summary>
-/// Janela de chat SOMENTE de leitura: o usuário não digita, só escolhe um botão. Ao abrir, ela NÃO
-/// inicia nada: só mostra a saudação e as opções. As falas do computador aparecem como num assistente
-/// (quem desenha é o <see cref="ChatView"/>). A janela não fecha sozinha. Sem regra de negócio aqui.
+/// Janela do assistente: o usuário não digita, só escolhe botões. Ao abrir, ela NÃO inicia nada: só mostra a
+/// saudação e a opção. Quem conduz o fluxo é o <see cref="GuidedPresenter"/>; quem desenha é o
+/// <see cref="WpfGuidedScreen"/>. A janela não fecha sozinha. Sem regra de negócio aqui.
 /// </summary>
 public partial class MainWindow : Window
 {
-    private readonly ChatRunner _runner = new(new DiagnosticEngine(AppComposition.CreateRegistry()));
     private readonly CancellationTokenSource _closing = new();
     private readonly ChatView _view;
 
@@ -32,60 +28,25 @@ public partial class MainWindow : Window
             warning.FontWeight = FontWeights.SemiBold;
         }
         _view.AddBubble(fromComputer: true, out var greeting);
-        greeting.Text = "Olá! Escolha uma das opções abaixo e eu mostro, passo a passo, o que estou verificando.";
+        greeting.Text = "Olá! Se a sua impressora não está imprimindo, clique no botão abaixo. Eu mostro, passo a passo, o que estou verificando.";
         Closing += (_, _) => _closing.Cancel();
     }
 
-    private void OnFullClick(object sender, RoutedEventArgs e) =>
-        _ = StartAsync(FullPrintingDiagnostic.DiagnosticId, "Diagnóstico completo");
+    private void OnNotPrintingClick(object sender, RoutedEventArgs e) => _ = StartAsync();
 
-    private void OnNotPrintingClick(object sender, RoutedEventArgs e) =>
-        _ = StartAsync(NotPrintingScenario.DiagnosticId, "Impressora não está imprimindo");
-
-    private async Task StartAsync(string diagnosticId, string whatTheUserChose)
+    private async Task StartAsync()
     {
-        SetButtons(enabled: false);
+        NotPrintingButton.IsEnabled = false;
         _view.AddBubble(fromComputer: false, out var choice);
-        choice.Text = whatTheUserChose;
+        choice.Text = "Impressora não imprime";
 
         // Dá um instante para a escolha "ser lida" antes de o computador começar a digitar.
-        await _view.WaitAsync(_view.Pacing.AfterUserMessage);
-
-        var channel = Channel.CreateUnbounded<ChatMessage>();
-        var producer = Task.Run(async () =>
-        {
-            try { await _runner.RunAsync(diagnosticId, m => channel.Writer.TryWrite(m), _closing.Token); }
-            finally { channel.Writer.TryComplete(); }
-        });
-
         try
         {
-            string? previous = null;
-            await foreach (var message in channel.Reader.ReadAllAsync(_closing.Token))
-            {
-                // Tempo para ler a fala anterior; só então a próxima começa a ser digitada.
-                await _view.WaitAsync(_view.Pacing.Reading(previous));
-                previous = message.Text + message.Detail;
-
-                // Como num chatbot: aparecem os pontinhos, e a MESMA bolha vira a fala.
-                var typing = _view.ShowTyping();
-                await _view.WaitAsync(_view.Pacing.Thinking(message.Text + message.Detail));
-
-                if (message.Kind == ChatKind.Narration)
-                {
-                    await _view.SpeakAsync(typing, message.Text);
-                }
-                else
-                {
-                    _view.Remove(typing);
-                    await _view.ShowCardAsync(message);
-                }
-            }
-            await producer;
+            await _view.WaitAsync(_view.Pacing.AfterUserMessage);
+            await new GuidedPresenter(_view.Pacing).RunAsync(AppComposition.CreateGuidedFlow, new WpfGuidedScreen(_view), _closing.Token);
         }
         catch (OperationCanceledException) { /* a janela foi fechada pelo usuário */ }
-        finally { SetButtons(enabled: true); }
+        finally { NotPrintingButton.IsEnabled = true; }
     }
-
-    private void SetButtons(bool enabled) => FullButton.IsEnabled = NotPrintingButton.IsEnabled = enabled;
 }

@@ -54,7 +54,7 @@ public sealed class GuidedNotPrintingFlow(
     private async Task<DiagnosticReport> RunCoreAsync(
         DateTimeOffset started, IProgress<GuidedEvent> events, List<ActionRecord> actions, CancellationToken ct)
     {
-        Say(events, "Vou investigar por que a impressora não imprime. Enquanto investigo, não altero nada: só leio o estado do computador.");
+        Say(events, "Antes de começar: enquanto investigo, não altero nada. Só leio o estado do computador.");
         var (snapshot, analysis) = await AnalyzeAsync(events, onlyPrinter: null, ct);
 
         // 1. Mais de uma impressora física candidata: quem sabe qual é a dele é o usuário.
@@ -135,7 +135,9 @@ public sealed class GuidedNotPrintingFlow(
                 return new FlowClosing(FlowResult.NotResolved, ClosingBasis.None, "Você não fez isso agora. O problema continua.");
 
             Say(events, "Obrigado. Vou conferir de novo, sem presumir que deu certo.");
-            var (_, analysis) = await AnalyzeAsync(events, chosen, ct);
+            var (snapshot, analysis) = await AnalyzeAsync(events, chosen, ct);
+            // A nova rodada reenvia as impressoras no estado inicial: os cartões precisam do estado atualizado.
+            PublishPrinterStates(events, snapshot, analysis);
 
             if (analysis.Primary is { } now)
             {

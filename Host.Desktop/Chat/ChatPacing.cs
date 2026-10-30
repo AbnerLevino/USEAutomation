@@ -13,6 +13,9 @@ public sealed record ChatPacing(
     /// <summary>Pausa depois que o usuário escolhe, antes de o computador começar a "digitar".</summary>
     public TimeSpan AfterUserMessage { get; init; }
 
+    /// <summary>Pausa depois de uma etapa terminar ou de uma impressora mudar de estado, para o olho acompanhar o quadro.</summary>
+    public TimeSpan AfterStep { get; init; }
+
     /// <summary>Tempo para a pessoa LER a fala anterior antes de a próxima começar: base + por letra, com teto.</summary>
     public TimeSpan ReadingBase { get; init; }
     public TimeSpan ReadingPerChar { get; init; }
@@ -23,6 +26,7 @@ public sealed record ChatPacing(
         TimeSpan.FromMilliseconds(600), TimeSpan.FromMilliseconds(8), TimeSpan.FromMilliseconds(1500), TimeSpan.FromMilliseconds(90))
     {
         AfterUserMessage = TimeSpan.FromMilliseconds(1000),
+        AfterStep = TimeSpan.FromMilliseconds(450),
         ReadingBase = TimeSpan.FromMilliseconds(500),
         ReadingPerChar = TimeSpan.FromMilliseconds(15),
         ReadingMax = TimeSpan.FromMilliseconds(2500)

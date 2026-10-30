@@ -17,6 +17,14 @@ public static class PrintingComposition
     public static DiagnosticRegistry? CreateDemoRegistry(string scenario) =>
         DemoPrintingProvider.Create(scenario) is { } demo ? CreateRegistry(demo, demo) : null;
 
+    /// <summary>O cenário "Impressora não imprime" sobre o Windows de verdade, para o fluxo guiado.</summary>
+    public static NotPrintingScenario CreateNotPrintingScenario() =>
+        NotPrintingScenario.Create(new WmiPrintSystemProvider(), new WmiPrintDeviceProvider());
+
+    /// <summary>O mesmo cenário sobre dados falsos (modo demonstração); null se o cenário de demonstração não existe.</summary>
+    public static NotPrintingScenario? CreateDemoNotPrintingScenario(string scenario) =>
+        DemoPrintingProvider.Create(scenario) is { } demo ? NotPrintingScenario.Create(demo, demo) : null;
+
     private static DiagnosticRegistry CreateRegistry(IPrintSystemProvider systemProvider, IPrintDeviceProvider deviceProvider)
     {
         var registry = new DiagnosticRegistry();

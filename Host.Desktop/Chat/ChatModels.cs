@@ -49,4 +49,39 @@ public static class ReportToChat
 
         return new ChatMessage(ChatKind.Conclusion, title, tone, report.Summary, lines);
     }
+
+    /// <summary>
+    /// Conclusão do fluxo guiado: o resultado do ponto de vista do usuário (resolvido ou não) e em que ele
+    /// se baseia. Sem fechamento (execução que falhou), cai na conclusão comum.
+    /// </summary>
+    public static ChatMessage GuidedConclusion(DiagnosticReport report)
+    {
+        var common = Conclusion(report);
+        if (report.ExecutionStatus != ExecutionStatus.Completed || report.Closing is not { } closing)
+            return common;
+
+        var (title, tone) = closing.Result switch
+        {
+            FlowResult.Resolved => ("Resolvido", ChatTone.Good),
+            FlowResult.NotResolved => ("Ainda não está resolvido", ChatTone.Problem),
+            FlowResult.Cancelled => ("Cancelado: nada foi alterado", ChatTone.Neutral),
+            _ => ("Não consegui concluir", ChatTone.Neutral)
+        };
+
+        var lines = new List<string>();
+        var basis = closing.Basis switch
+        {
+            ClosingBasis.UserAnswer => "Esta conclusão se baseia na sua resposta.",
+            ClosingBasis.ObjectiveVerification => "Esta conclusão se baseia só na verificação do sistema, não em um teste seu.",
+            _ => null
+        };
+        if (basis is not null) lines.Add(basis);
+        lines.AddRange(report.Actions.Select(a => $"• {a.Summary}"));
+
+        // Resolvido: as orientações ("→") já não servem; o que foi achado continua sendo o registro do que houve.
+        var details = common.Lines ?? [];
+        lines.AddRange(closing.Result == FlowResult.Resolved ? details.Where(l => !l.StartsWith("→")) : details);
+
+        return new ChatMessage(ChatKind.Conclusion, title, tone, closing.Message, lines);
+    }
 }

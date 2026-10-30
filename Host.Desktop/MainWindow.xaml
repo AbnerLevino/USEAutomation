@@ -13,7 +13,7 @@
         <Border Grid.Row="0" Background="#1F2937" Padding="16,12">
             <StackPanel>
                 <TextBlock Text="Assistente de Impressão" Foreground="White" FontSize="18" FontWeight="SemiBold" />
-                <TextBlock Text="Somente leitura: eu só olho, não altero nada no seu computador."
+                <TextBlock Text="Eu mostro o que estou verificando e só altero algo se você confirmar."
                            Foreground="#D1D5DB" FontSize="12" Margin="0,2,0,0" />
             </StackPanel>
         </Border>
@@ -23,12 +23,8 @@
         </ScrollViewer>
 
         <Border Grid.Row="2" Background="White" Padding="16,12" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0">
-            <StackPanel Orientation="Horizontal">
-                <Button x:Name="FullButton" AutomationProperties.AutomationId="btn-full"
-                        Content="Diagnóstico completo" Padding="14,8" Margin="0,0,10,0" Click="OnFullClick" />
-                <Button x:Name="NotPrintingButton" AutomationProperties.AutomationId="btn-not-printing"
-                        Content="Impressora não está imprimindo" Padding="14,8" Click="OnNotPrintingClick" />
-            </StackPanel>
+            <Button x:Name="NotPrintingButton" AutomationProperties.AutomationId="btn-not-printing"
+                    Content="Impressora não imprime" Padding="14,8" HorizontalAlignment="Left" Click="OnNotPrintingClick" />
         </Border>
     </Grid>
 </Window>

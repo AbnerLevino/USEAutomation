@@ -10,6 +10,9 @@ namespace AutomationPlatform.Host.Desktop.Rendering;
 /// Só desenha; não conhece diagnóstico, fluxo nem regra de negócio. Todas as esperas respeitam o
 /// <c>closing</c>, para a janela poder fechar a qualquer momento.
 /// </summary>
+/// <summary>Um botão de resposta numa pergunta da conversa.</summary>
+public sealed record ChatButton<T>(string Label, T Value, bool Primary = false);
+
 public sealed class ChatView(ScrollViewer scroll, Panel chat, ChatPacing pacing, CancellationToken closing)
 {
     public ChatPacing Pacing => pacing;
@@ -57,6 +60,48 @@ public sealed class ChatView(ScrollViewer scroll, Panel chat, ChatPacing pacing,
     }
 
     public void Remove(UIElement element) => chat.Children.Remove(element);
+
+    /// <summary>Coloca um elemento próprio na conversa (ex.: o quadro de impressoras).</summary>
+    public void Add(FrameworkElement element) => Append(element);
+
+    /// <summary>
+    /// Pergunta ao usuário: o computador fala, aparecem os botões, e a escolha vira uma bolha do usuário.
+    /// Os botões somem depois do clique (não dá para responder duas vezes). Fechar a janela cancela a espera.
+    /// </summary>
+    public async Task<T> AskAsync<T>(string text, IReadOnlyList<ChatButton<T>> options)
+    {
+        var typing = ShowTyping();
+        await WaitAsync(pacing.Thinking(text));
+        await SpeakAsync(typing, text);
+
+        var answer = new TaskCompletionSource<ChatButton<T>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var row = new WrapPanel { Margin = new Thickness(0, 0, 0, 10), HorizontalAlignment = HorizontalAlignment.Left };
+        foreach (var option in options)
+        {
+            var button = new Button
+            {
+                Content = option.Label,
+                Padding = new Thickness(14, 8, 14, 8),
+                Margin = new Thickness(0, 0, 8, 6),
+                FontWeight = option.Primary ? FontWeights.SemiBold : FontWeights.Normal
+            };
+            button.Click += (_, _) =>
+            {
+                foreach (var b in row.Children.OfType<Button>()) b.IsEnabled = false;
+                answer.TrySetResult(option);
+            };
+            row.Children.Add(button);
+        }
+        Append(row);
+
+        using var registration = closing.Register(() => answer.TrySetCanceled(closing));
+        var chosen = await answer.Task;
+
+        Remove(row);
+        AddBubble(fromComputer: false, out var reply);
+        reply.Text = chosen.Label;
+        return chosen.Value;
+    }
 
     /// <summary>O cartão de conclusão: título colorido pelo tom e as linhas de detalhe.</summary>
     public async Task ShowCardAsync(ChatMessage message)
