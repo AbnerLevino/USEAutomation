@@ -53,7 +53,7 @@ public class ReportSerializerTests
     {
         var json = ReportSerializer.Serialize(SampleReport());
 
-        Assert.Contains("\"schemaVersion\": \"1.1\"", json);
+        Assert.Contains("\"schemaVersion\": \"1.2\"", json);
         Assert.Contains("\"overallStatus\": \"ProblemConfirmed\"", json);
         Assert.Contains("\"executionStatus\": \"Completed\"", json);
     }
@@ -62,7 +62,7 @@ public class ReportSerializerTests
     public void Relatorio_1_0_antigo_sem_acoes_continua_valido()
     {
         var json = ReportSerializer.Serialize(SampleReport())
-            .Replace("\"schemaVersion\": \"1.1\"", "\"schemaVersion\": \"1.0\"");
+            .Replace("\"schemaVersion\": \"1.2\"", "\"schemaVersion\": \"1.0\"");
         var withoutActions = System.Text.RegularExpressions.Regex.Replace(json, "\\s*\"actions\": \\[\\],?", "");
 
         var back = ReportSerializer.Deserialize(withoutActions);

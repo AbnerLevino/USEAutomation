@@ -20,10 +20,10 @@ public sealed class NotPrintingScenario(PrintingSnapshotCollector collector) : I
 
     /// <summary>Análise tipada (causas, ações candidatas), usada pelas fases de correção e interação.</summary>
     public async Task<(PrintingSnapshot Snapshot, ScenarioAnalysis Analysis)> AnalyzeAsync(
-        IProgress<DiagnosticProgress> progress, CancellationToken cancellationToken)
+        IProgress<DiagnosticProgress> progress, CancellationToken cancellationToken, IProgress<GuidedEvent>? events = null)
     {
         CheckProgress.Say(progress, "Vou investigar por que a impressora não imprime: reúno várias verificações e depois cruzo os resultados.");
-        var snapshot = await collector.CollectAsync(progress, cancellationToken);
+        var snapshot = await collector.CollectAsync(progress, cancellationToken, events);
 
         CheckProgress.Say(progress, "Agora vou cruzar o que encontrei para separar a causa dos seus efeitos.");
         var analysis = CauseAnalyzer.Analyze(snapshot, TargetMode.DefaultOrPhysical);

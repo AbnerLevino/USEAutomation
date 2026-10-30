@@ -3,8 +3,8 @@ namespace AutomationPlatform.Contracts;
 /// <summary>Versão do formato JSON. Muda quando o formato muda de forma incompatível.</summary>
 public static class ReportSchema
 {
-    // 1.1 acrescentou "actions". Relatórios 1.0 continuam válidos: o campo novo vem vazio.
-    public const string CurrentVersion = "1.1";
+    // 1.1 acrescentou "actions"; 1.2 acrescentou "closing". Relatórios anteriores continuam válidos: o campo novo vem vazio.
+    public const string CurrentVersion = "1.2";
 }
 
 /// <summary>Resultado completo de uma execução. É o que sai em JSON.</summary>
@@ -25,6 +25,9 @@ public sealed record DiagnosticReport
 
     /// <summary>Correções tentadas (confirmadas ou não) a partir deste diagnóstico. Vazio = nenhuma tentativa.</summary>
     public IReadOnlyList<ActionRecord> Actions { get; init; } = [];
+
+    /// <summary>Como o fluxo guiado terminou e em que se baseia (resposta do usuário ou leitura objetiva). Null = não houve fluxo guiado.</summary>
+    public FlowClosing? Closing { get; init; }
 
     /// <summary>Descrição técnica do erro quando a execução não foi <see cref="ExecutionStatus.Completed"/>.</summary>
     public string? ErrorMessage { get; init; }

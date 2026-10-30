@@ -8,7 +8,7 @@ namespace AutomationPlatform.Engine;
 /// verificação independente confirma; toda tentativa, até a que não alterou nada, vai para a auditoria.
 /// Exceções da ação viram resultado, nunca escapam; o cancelamento (CancellationToken) escapa.
 /// </summary>
-public sealed class RemediationPipeline(IAuditLog audit, TimeProvider? clock = null)
+public sealed class RemediationPipeline(IAuditLog audit, TimeProvider? clock = null) : IActionRunner
 {
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
 
