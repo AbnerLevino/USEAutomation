@@ -1,7 +1,7 @@
 using AutomationPlatform.Contracts;
 using AutomationPlatform.Diagnostics.Printing;
 using AutomationPlatform.Engine;
-using AutomationPlatform.Host.Desktop;
+using AutomationPlatform.Host.Desktop.Chat;
 
 namespace AutomationPlatform.Tests;
 

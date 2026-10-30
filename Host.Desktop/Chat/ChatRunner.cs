@@ -1,7 +1,7 @@
 using AutomationPlatform.Contracts;
 using AutomationPlatform.Engine;
 
-namespace AutomationPlatform.Host.Desktop;
+namespace AutomationPlatform.Host.Desktop.Chat;
 
 /// <summary>
 /// Roda um diagnóstico e entrega, em tempo real, o que o computador "fala" (a narração) e, no fim,

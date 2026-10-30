@@ -1,4 +1,4 @@
-using AutomationPlatform.Host.Desktop;
+using AutomationPlatform.Host.Desktop.Chat;
 
 namespace AutomationPlatform.Tests;
 

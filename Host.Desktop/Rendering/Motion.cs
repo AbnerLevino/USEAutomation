@@ -5,7 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 
-namespace AutomationPlatform.Host.Desktop;
+namespace AutomationPlatform.Host.Desktop.Rendering;
 
 /// <summary>
 /// Movimentos leves da conversa: a fala sobe e aparece, os pontinhos de "digitando" pulam em onda e a

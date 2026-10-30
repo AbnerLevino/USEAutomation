@@ -1,6 +1,6 @@
 using AutomationPlatform.Contracts;
 
-namespace AutomationPlatform.Host.Desktop;
+namespace AutomationPlatform.Host.Desktop.Chat;
 
 public enum ChatKind
 {

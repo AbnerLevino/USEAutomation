@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace AutomationPlatform.Host.Desktop;
+namespace AutomationPlatform.Host.Desktop.Chat;
 
 /// <summary>
 /// O "ritmo" de uma conversa de assistente: uma pausa de "pensando" antes de cada fala e o texto

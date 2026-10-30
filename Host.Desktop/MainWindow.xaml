@@ -19,7 +19,7 @@
         </Border>
 
         <ScrollViewer Grid.Row="1" x:Name="Scroll" VerticalScrollBarVisibility="Auto" Padding="16,12">
-            <StackPanel x:Name="Chat" />
+            <StackPanel x:Name="ChatPanel" />
         </ScrollViewer>
 
         <Border Grid.Row="2" Background="White" Padding="16,12" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0">
